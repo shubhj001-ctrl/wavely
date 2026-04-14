@@ -1,52 +1,52 @@
 /* ─────────────────────────────────────────
    variables.css — Design tokens
-   All colors, spacing, and typography
-   values live here. Edit to retheme.
+   MU LABZ minimal dark theme
+   Monochrome, premium, distraction-free
 ───────────────────────────────────────── */
 
 :root {
-  /* Backgrounds */
-  --bg:       #fafaf8;
-  --bg2:      #f2f0eb;
-  --bg3:      #e8e5dd;
-  --surface:  #ffffff;
+  /* Backgrounds — Dark Monochrome */
+  --bg:       #0E0E0E;
+  --bg2:      #151515;
+  --bg3:      #1A1A1A;
+  --surface:  #121212;
 
   /* Borders */
-  --border:   #e5e2da;
-  --border2:  #d0ccc2;
+  --border:   #262626;
+  --border2:  #1F1F1F;
 
   /* Text */
-  --text:     #1a1814;
-  --text2:    #6b6860;
-  --text3:    #a09d96;
+  --text:     #FFFFFF;
+  --text2:    #A1A1A1;
+  --text3:    #6B6B6B;
 
-  /* Accent — green */
-  --accent:      #2d6a4f;
-  --accent-bg:   #e8f5ee;
-  --accent-dark: #1e4d39;
+  /* Accent — White/Gray for minimal design */
+  --accent:      #FFFFFF;
+  --accent-bg:   #1A1A1A;
+  --accent-dark: #333333;
 
-  /* Accent 2 — amber */
-  --accent2:     #c17435;
-  --accent2-bg:  #fdf0e4;
+  /* Accent 2 — Subtle gray */
+  --accent2:     #80BD7C;
+  --accent2-bg:  #1A1A1A;
 
   /* Semantic */
-  --red:     #c0392b;
-  --red-bg:  #fde8e8;
+  --red:     #E64646;
+  --red-bg:  #2A1515;
 
-  /* Shadows */
-  --shadow:  0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
-  --shadow2: 0 2px 8px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
+  /* Shadows — Minimal, dark-friendly */
+  --shadow:  0 2px 8px rgba(0,0,0,0.3);
+  --shadow2: 0 4px 16px rgba(0,0,0,0.4);
 
   /* Radii */
-  --radius:    14px;
+  --radius:    12px;
   --radius-sm: 8px;
-  --radius-lg: 20px;
+  --radius-lg: 16px;
 
   /* Layout */
   --sidebar-w:  220px;
   --player-h:   80px;
 
-  /* Typography */
-  --font-display: 'Instrument Serif', Georgia, serif;
-  --font-body:    'Geist', system-ui, sans-serif;
+  /* Typography — Modern, minimal */
+  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
 }

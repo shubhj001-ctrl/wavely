@@ -71,12 +71,12 @@ function addToHistory(track) {
       source: t.source,
     }))
   };
-  localStorage.setItem('wavely_history', JSON.stringify(historyData));
+  localStorage.setItem('mu_labz_history', JSON.stringify(historyData));
 }
 
 /** Load history from localStorage and check if it's expired (1 day = 86400000ms) */
 function loadHistoryFromStorage() {
-  const stored = localStorage.getItem('wavely_history');
+  const stored = localStorage.getItem('mu_labz_history');
   if (!stored) return;
   
   try {
@@ -88,17 +88,17 @@ function loadHistoryFromStorage() {
       State.history = data.tracks || [];
     } else {
       // History expired, clear it
-      localStorage.removeItem('wavely_history');
+      localStorage.removeItem('mu_labz_history');
       State.history = [];
     }
   } catch (e) {
-    console.warn('[Wavely] Failed to load history from storage:', e);
+    console.warn('[MU LABZ] Failed to load history from storage:', e);
   }
 }
 
 /** Clear old history if it's more than 1 day old */
 function clearExpiredHistory() {
-  const stored = localStorage.getItem('wavely_history');
+  const stored = localStorage.getItem('mu_labz_history');
   if (!stored) return;
   
   try {
@@ -107,11 +107,11 @@ function clearExpiredHistory() {
     const ONE_DAY = 24 * 60 * 60 * 1000;
     
     if (age >= ONE_DAY) {
-      localStorage.removeItem('wavely_history');
+      localStorage.removeItem('mu_labz_history');
       State.history = [];
     }
   } catch (e) {
-    console.warn('[Wavely] Failed to check history expiry:', e);
+    console.warn('[MU LABZ] Failed to check history expiry:', e);
   }
 }
 

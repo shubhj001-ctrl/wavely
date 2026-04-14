@@ -7,7 +7,10 @@ body {
   color: var(--text);
   font-family: var(--font-body);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .app {
@@ -23,17 +26,37 @@ body {
   grid-row: 1;
   overflow-y: auto;
   background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+.main::-webkit-scrollbar {
+  width: 6px;
+}
+
+.main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.main::-webkit-scrollbar-thumb:hover {
+  background: var(--text3);
 }
 
 /* Page base */
 .page {
-  padding: 28px 32px 48px;
-  animation: pageIn 0.18s ease;
+  padding: 32px;
+  animation: pageIn 0.2s ease;
 }
 
 @keyframes pageIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* Top bar inside each page */
@@ -41,24 +64,27 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
   position: sticky;
   top: 0;
   z-index: 10;
   background: var(--bg);
-  padding: 4px 0 12px;
+  padding: 0;
 }
 
 .topbar h1 {
   font-family: var(--font-display);
-  font-size: 1.6rem;
-  font-weight: 400;
+  font-size: 2rem;
+  font-weight: 600;
   letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0;
 }
 
 .topbar h1 em {
-  font-style: italic;
-  color: var(--accent);
+  font-style: normal;
+  color: var(--text);
+  font-weight: 600;
 }
 
 /* Section headers */
@@ -66,24 +92,33 @@ body {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 20px;
+  margin-top: 32px;
+}
+
+.section-hd:first-of-type {
+  margin-top: 0;
 }
 
 .section-hd h2 {
   font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 400;
+  font-size: 1.4rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0;
 }
 
 .section-hd a {
   font-size: 12px;
-  color: var(--accent);
+  color: var(--text2);
   cursor: pointer;
+  transition: color 0.15s;
+  text-decoration: none;
 }
 
 .section-hd a:hover {
-  text-decoration: underline;
+  color: var(--text);
 }
 
 /* Mobile navigation */
@@ -110,7 +145,7 @@ body {
   padding: 8px 12px;
   background: none;
   border: none;
-  color: var(--text2);
+  color: var(--text3);
   font-size: 10px;
   font-weight: 500;
   cursor: pointer;
@@ -121,16 +156,17 @@ body {
 }
 
 .mobile-nav-item:hover {
-  color: var(--accent);
+  color: var(--text);
 }
 
 .mobile-nav-item.active {
-  color: var(--accent);
+  color: var(--text);
 }
 
 .mobile-nav-item svg {
   width: 24px;
   height: 24px;
+  stroke-width: 1.5;
 }
 
 /* ── Responsive ───────────────────── */

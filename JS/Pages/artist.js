@@ -65,7 +65,7 @@ const ArtistPage = (() => {
     State.queue = tracks;
 
     container.querySelector('#artist-meta').textContent =
-      `${tracks.length} track${tracks.length !== 1 ? 's' : ''} on Wavely`;
+      `${tracks.length} track${tracks.length !== 1 ? 's' : ''} on MU LABZ`;
 
     // Pick a fun emoji for the decoration
     const emojis = ['🎵','🎶','🎸','🎹','🎺','🎻','🥁','🎤'];

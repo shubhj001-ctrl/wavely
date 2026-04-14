@@ -54,10 +54,10 @@ const Player = (() => {
     if (_useYT) return;
     const err = audio.error;
     if (err && (err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED || err.code === MediaError.MEDIA_ERR_NETWORK)) {
-      console.warn('[Wavely] Audio src/network error, trying YouTube fallback. Code:', err.code);
+      console.warn('[MU LABZ] Audio src/network error, trying YouTube fallback. Code:', err.code);
       _playViaYouTube(currentTrack());
     } else {
-      console.warn('[Wavely] Audio decode/unknown error, skipping to next. Code:', err?.code);
+      console.warn('[MU LABZ] Audio decode/unknown error, skipping to next. Code:', err?.code);
       setTimeout(() => Player.next(), 1000);
     }
   });
@@ -131,7 +131,7 @@ const Player = (() => {
           ids.push({id,sc});
         });
       } catch(e) {
-        console.warn('[Wavely] YT search error:', e);
+        console.warn('[MU LABZ] YT search error:', e);
       }
       if (ids.length>=5) break;
     }
@@ -215,8 +215,8 @@ const Player = (() => {
         if (ytPlayer?.pauseVideo) ytPlayer.pauseVideo();
         clearInterval(progressTimer);
         audio.src=track.audio; audio.volume=State.volume; audio.currentTime=0;
-        try { await audio.play(); console.log('[Wavely] ▶ JioSaavn:',track.title,'|',track.genre||'unknown'); }
-        catch(e) { console.warn('[Wavely] Autoplay blocked:', e); showToast('Tap play to start'); }
+        try { await audio.play(); console.log('[MU LABZ] ▶ JioSaavn:',track.title,'|',track.genre||'unknown'); }
+        catch(e) { console.warn('[MU LABZ] Autoplay blocked:', e); showToast('Tap play to start'); }
       } else {
         audio.pause();
         await _playViaYouTube(track);
