@@ -5,11 +5,39 @@
 
 .sidebar {
   grid-row: 1 / 2;
+  grid-column: 1 / 2;
   background: var(--bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  width: var(--sidebar-w);
+  visibility: visible;
+}
+
+/* Hide sidebar on mobile */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    position: absolute !important;
+    left: -9999px !important;
+  }
+
+  .sidebar-logo {
+    display: none !important;
+  }
+
+  .sidebar-nav {
+    display: none !important;
+  }
+
+  .sidebar-playlists {
+    display: none !important;
+    visibility: hidden !important;
+  }
 }
 
 /* Logo */

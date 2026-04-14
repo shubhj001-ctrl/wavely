@@ -228,8 +228,11 @@ body.menu-open {
 /* ── Responsive ───────────────────── */
 @media (max-width: 768px) {
   .app {
+    display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr var(--player-h);
+    height: 100vh;
+    overflow: hidden;
   }
 
   .hamburger {
@@ -237,11 +240,12 @@ body.menu-open {
   }
 
   .sidebar {
-    display: none;
+    display: none !important;
+    width: 0 !important;
   }
 
   .sidebar-playlists {
-    display: none;
+    display: none !important;
   }
 
   .main {
