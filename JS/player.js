@@ -200,7 +200,12 @@ const Player = (() => {
   return {
     async play(track, queue, index) {
       if (!track) return;
-      if (queue !== undefined) { State.queue=queue; State.queueIndex=index??0; Queue.clear(); }
+      if (queue !== undefined) { 
+        State.queue=queue; 
+        State.queueIndex=index??0; 
+        Queue.clear();
+        console.log(`[Player.play] Queue set to ${queue.length} tracks, index set to ${State.queueIndex}, playing: ${track?.title}`);
+      }
       _updateTrackInfo(track);
       _updateLikeBtn();
       _highlightRow(track.id);

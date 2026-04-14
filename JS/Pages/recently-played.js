@@ -70,7 +70,7 @@ const RecentlyPlayedPage = (() => {
       clearBtn.addEventListener('click', () => {
         if (confirm('Clear all recently played tracks? This action cannot be undone.')) {
           State.history = [];
-          localStorage.removeItem('wavely_history');
+          localStorage.removeItem('mu_labz_history');
           showToast('History cleared');
           render(container); // Re-render
         }

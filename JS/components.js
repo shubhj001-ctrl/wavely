@@ -90,9 +90,16 @@ const Components = (() => {
     // Bind events
     container.querySelectorAll('.track-row').forEach(row => {
       const idx = parseInt(row.dataset.trackIndex);
-
+      const displayNum = row.querySelector('.track-num')?.textContent || '?';
+      
       row.addEventListener('click', e => {
         if (e.target.closest('.icon-btn') || e.target.closest('.track-artist-link')) return;
+        const clickedTrack = tracks[idx];
+        console.log(`[Track Click] Clicked display #${displayNum}, data-index=${idx}, track="${clickedTrack?.title || 'UNDEFINED'}", set size=${tracks.length}`, {
+          track: clickedTrack,
+          index: idx,
+          tracks: tracks
+        });
         opts.onPlay && opts.onPlay(tracks[idx], idx, tracks);
       });
     });
