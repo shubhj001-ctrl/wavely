@@ -52,11 +52,11 @@ const PartyRoom = (() => {
 
     // Connect to backend
     // LOCAL: http://localhost:3001 (for development)
-    // DEPLOYED: https://your-railway-url.up.railway.app (for production)
+    // DEPLOYED: https://mu-labz-production.up.railway.app (for production)
     const backendUrl = window.location.hostname === 'localhost'
       ? 'http://localhost:3001'
-      : 'https://mu-labz-production.up.railway.app'; // REPLACE with your Railway URL
-    
+      : 'https://mu-labz-production.up.railway.app';
+
     console.log('[PartyRoom] Connecting to backend at', backendUrl);
 
     socket = io(backendUrl, {
@@ -64,11 +64,7 @@ const PartyRoom = (() => {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
-      secure: true, // Enable HTTPS for production
-      rejectUnauthorized: false, // Allow self-signed certs
-      extraHeaders: {
-        'Content-Type': 'application/json'
-      }
+      transports: ['polling', 'websocket'], // polling first, then upgrade to WS
     });
 
     _attachSocketListeners();
