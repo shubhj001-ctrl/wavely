@@ -1,13 +1,8 @@
 /**
- * party.js — Party Room state and socket management (FIXED)
+ * party.js — Party Room state and socket management
  *
  * Handles all real-time syncing, room management, and party state.
  * Uses Socket.IO for WebSocket communication.
- * BUG FIXES:
- * - Proper error event handling
- * - Support for 4-digit passcodes
- * - User removal capability
- * - Better public/private room handling
  */
 
 const PartyRoom = (() => {
@@ -21,7 +16,6 @@ const PartyRoom = (() => {
     roomId: null,
     roomName: '',
     roomType: 'public', // 'public' or 'private'
-    roomPassword: null, // 4-digit passcode for private rooms
     maxUsers: 10,
     creatorId: null,
 
@@ -33,10 +27,16 @@ const PartyRoom = (() => {
     // Room state
     djs: [],
     users: [],
-    bucket: [], // { songId, title, artist, image, addedBy, addedAt }
+    bucket: [], // { songId, title, artist, addedBy, addedAt }
     currentSong: null,
     currentTime: 0,
     isPlaying: false,
+
+    // Join requests
+    pendingRequests: [],
+
+    // Messages
+    messages: [],
   };
 
   // ── Initialization ───────────────────────────────────────────────
@@ -51,9 +51,11 @@ const PartyRoom = (() => {
     }
 
     // Connect to backend
+    // LOCAL: http://localhost:3001 (for development)
+    // DEPLOYED: Update with your Render URL (https://your-service-name.onrender.com)
     const backendUrl = window.location.hostname === 'localhost'
       ? 'http://localhost:3001'
-      : 'https://mu-labz-backend.onrender.com';
+      : 'https://mulabz.onrender.com'; // REPLACE with your Render URL
 
     console.log('[PartyRoom] Connecting to backend at', backendUrl);
 
@@ -62,7 +64,7 @@ const PartyRoom = (() => {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // polling first, then upgrade to WS
     });
 
     _attachSocketListeners();
@@ -75,7 +77,7 @@ const PartyRoom = (() => {
 
     // Connection events
     socket.on('connect', () => {
-      console.log('[PartyRoom] Connected to server:', socket.id);
+      console.log('[PartyRoom] Connected to server');
       isConnected = true;
       document.dispatchEvent(new CustomEvent('party:connected'));
     });
@@ -86,20 +88,10 @@ const PartyRoom = (() => {
       document.dispatchEvent(new CustomEvent('party:disconnected'));
     });
 
-    // Connection success
-    socket.on('connect:success', (data) => {
-      console.log('[PartyRoom] Backend connection successful:', data.message);
-    });
-
-    // ── Room Events ══════════════════════════════════════════════
-
-    // Room created
+    // Room events
     socket.on('room:created', (data) => {
-      console.log('[PartyRoom] Room created:', data.roomId);
       PartyState.roomId = data.roomId;
       PartyState.roomName = data.roomName;
-      PartyState.roomType = data.roomType;
-      PartyState.roomPassword = data.roomPassword;
       PartyState.creatorId = data.creatorId;
       PartyState.userId = data.userId;
       PartyState.role = 'dj';
@@ -107,12 +99,9 @@ const PartyRoom = (() => {
       document.dispatchEvent(new CustomEvent('party:roomCreated', { detail: PartyState }));
     });
 
-    // Room joined successfully
     socket.on('room:joined', (data) => {
-      console.log('[PartyRoom] Room joined:', data.roomId);
       PartyState.roomId = data.roomId;
       PartyState.roomName = data.roomName;
-      PartyState.roomType = data.roomType;
       PartyState.userId = data.userId;
       PartyState.role = data.role || 'guest';
       PartyState.djs = data.djs || [];
@@ -124,48 +113,22 @@ const PartyRoom = (() => {
       document.dispatchEvent(new CustomEvent('party:roomJoined', { detail: PartyState }));
     });
 
-    // Room closed
-    socket.on('room:closed', (data) => {
-      console.log('[PartyRoom] Room closed:', data.reason);
-      document.dispatchEvent(new CustomEvent('party:roomClosed', { detail: data }));
-    });
-
-    // ── User Events ══════════════════════════════════════════════
-
-    // User joined room
     socket.on('user:joined', (data) => {
-      console.log('[PartyRoom] User joined:', data.partyName);
-      const user = { userId: data.userId, partyName: data.partyName, role: data.role || 'guest' };
-      if (!PartyState.users.find(u => u.userId === data.userId) && !PartyState.djs.find(d => d.userId === data.userId)) {
+      const user = { userId: data.userId, partyName: data.partyName, role: data.role };
+      if (!PartyState.users.find(u => u.userId === data.userId)) {
         PartyState.users.push(user);
       }
       document.dispatchEvent(new CustomEvent('party:userJoined', { detail: user }));
     });
 
-    // User left room
     socket.on('user:left', (data) => {
-      console.log('[PartyRoom] User left:', data.userId);
       PartyState.users = PartyState.users.filter(u => u.userId !== data.userId);
       PartyState.djs = PartyState.djs.filter(u => u.userId !== data.userId);
       document.dispatchEvent(new CustomEvent('party:userLeft', { detail: data }));
     });
 
-    // User removed from room
-    socket.on('user:removed', (data) => {
-      console.log('[PartyRoom] User removed:', data.userId || 'you');
-      if (data.userId === PartyState.userId) {
-        // Current user was removed
-        document.dispatchEvent(new CustomEvent('party:userRemovedSelf', { detail: data }));
-      } else {
-        PartyState.users = PartyState.users.filter(u => u.userId !== data.userId);
-      }
-      document.dispatchEvent(new CustomEvent('party:userRemoved', { detail: data }));
-    });
-
-    // ── Playback Events ══════════════════════════════════════════
-
+    // Playback sync events
     socket.on('playback:play', (data) => {
-      console.log('[PartyRoom] Playing:', data.currentSong?.title);
       PartyState.isPlaying = true;
       PartyState.currentSong = data.currentSong;
       PartyState.currentTime = data.currentTime;
@@ -173,17 +136,9 @@ const PartyRoom = (() => {
     });
 
     socket.on('playback:pause', (data) => {
-      console.log('[PartyRoom] Paused');
       PartyState.isPlaying = false;
       PartyState.currentTime = data.currentTime;
       document.dispatchEvent(new CustomEvent('party:pause', { detail: data }));
-    });
-
-    socket.on('playback:resume', (data) => {
-      console.log('[PartyRoom] Resumed');
-      PartyState.isPlaying = true;
-      PartyState.currentTime = data.currentTime;
-      document.dispatchEvent(new CustomEvent('party:resume', { detail: data }));
     });
 
     socket.on('playback:seek', (data) => {
@@ -192,30 +147,19 @@ const PartyRoom = (() => {
     });
 
     socket.on('playback:next', (data) => {
-      console.log('[PartyRoom] Next track:', data.currentSong?.title);
       PartyState.currentSong = data.currentSong;
       PartyState.currentTime = 0;
-      PartyState.isPlaying = data.currentSong ? true : false;
-      if (data.currentSong) {
-        PartyState.bucket = PartyState.bucket.filter(b => b.songId !== data.currentSong.id);
-      }
+      PartyState.isPlaying = true;
+      PartyState.bucket = PartyState.bucket.filter(b => b.songId !== data.currentSong.id);
       document.dispatchEvent(new CustomEvent('party:next', { detail: data }));
     });
 
-    socket.on('playback:syncTime', (data) => {
-      PartyState.currentTime = data.currentTime;
-      document.dispatchEvent(new CustomEvent('party:syncTime', { detail: data }));
-    });
-
-    // ── Bucket Events ════════════════════════════════════════════
-
+    // Bucket events
     socket.on('bucket:add', (data) => {
-      console.log('[PartyRoom] Added to bucket:', data.title);
       const item = {
         songId: data.songId,
         title: data.title,
         artist: data.artist,
-        image: data.image,
         addedBy: data.addedBy,
         addedAt: data.addedAt,
       };
@@ -224,21 +168,54 @@ const PartyRoom = (() => {
     });
 
     socket.on('bucket:remove', (data) => {
-      console.log('[PartyRoom] Removed from bucket:', data.songId);
       PartyState.bucket = PartyState.bucket.filter(b => b.songId !== data.songId);
       document.dispatchEvent(new CustomEvent('party:bucketRemove', { detail: data.songId }));
     });
 
-    // ── Error Events ═════════════════════════════════════════════
-
-    socket.on('error', (err) => {
-      console.error('[PartyRoom] Socket error:', err.type, err.message);
-      document.dispatchEvent(new CustomEvent('party:error', { detail: err }));
+    // Role events
+    socket.on('role:djRequest', (data) => {
+      if (!PartyState.pendingRequests.find(r => r.userId === data.userId)) {
+        PartyState.pendingRequests.push(data);
+      }
+      document.dispatchEvent(new CustomEvent('party:djRequest', { detail: data }));
     });
 
-    socket.on('connect_error', (error) => {
-      console.error('[PartyRoom] Connection error:', error.message);
-      document.dispatchEvent(new CustomEvent('party:connectionError', { detail: error }));
+    socket.on('role:djApproved', (data) => {
+      const user = PartyState.users.find(u => u.userId === data.userId);
+      if (user) user.role = 'dj';
+      if (!PartyState.djs.find(d => d.userId === data.userId)) {
+        PartyState.djs.push({ userId: data.userId, partyName: data.partyName });
+      }
+      PartyState.pendingRequests = PartyState.pendingRequests.filter(r => r.userId !== data.userId);
+      document.dispatchEvent(new CustomEvent('party:djApproved', { detail: data }));
+    });
+
+    // Chat events
+    socket.on('message:new', (data) => {
+      PartyState.messages.push({
+        userId: data.userId,
+        partyName: data.partyName,
+        text: data.text,
+        timestamp: data.timestamp,
+      });
+      document.dispatchEvent(new CustomEvent('party:messageNew', { detail: data }));
+    });
+
+    // Join request events
+    socket.on('joinRequest:new', (data) => {
+      if (!PartyState.pendingRequests.find(r => r.userId === data.userId)) {
+        PartyState.pendingRequests.push(data);
+      }
+      document.dispatchEvent(new CustomEvent('party:joinRequestNew', { detail: data }));
+    });
+
+    socket.on('room:closed', () => {
+      document.dispatchEvent(new CustomEvent('party:roomClosed'));
+    });
+
+    socket.on('error', (err) => {
+      console.error('[PartyRoom] Socket error:', err);
+      document.dispatchEvent(new CustomEvent('party:error', { detail: err }));
     });
   }
 
@@ -256,17 +233,12 @@ const PartyRoom = (() => {
       localStorage.setItem('mu_labz_party_name', name);
     },
 
-    // Socket initialization
+    // Room creation/joining
     init: () => _setupSocket(),
-
-    // ── Room Management ──────────────────────────────────────────
 
     createRoom: (roomName, maxUsers, roomType, password = null) => {
       if (!socket || !isConnected) {
         console.error('[PartyRoom] Socket not connected');
-        document.dispatchEvent(new CustomEvent('party:error', {
-          detail: { type: 'NOT_CONNECTED', message: 'Not connected to server' }
-        }));
         return;
       }
       socket.emit('room:create', {
@@ -281,9 +253,6 @@ const PartyRoom = (() => {
     joinRoom: (roomId, password = null) => {
       if (!socket || !isConnected) {
         console.error('[PartyRoom] Socket not connected');
-        document.dispatchEvent(new CustomEvent('party:error', {
-          detail: { type: 'NOT_CONNECTED', message: 'Not connected to server' }
-        }));
         return;
       }
       socket.emit('room:join', {
@@ -302,18 +271,7 @@ const PartyRoom = (() => {
       PartyState.bucket = [];
     },
 
-    // ── User Management ──────────────────────────────────────────
-
-    removeUser: (userIdToRemove) => {
-      if (!socket || !isConnected) return;
-      socket.emit('user:remove', {
-        roomId: PartyState.roomId,
-        userIdToRemove,
-      });
-    },
-
-    // ── Playback Controls (DJ only) ──────────────────────────────
-
+    // Playback controls (DJ only)
     playTrack: (track) => {
       if (!socket || !isConnected) return;
       socket.emit('playback:play', {
@@ -354,8 +312,7 @@ const PartyRoom = (() => {
       });
     },
 
-    // ── Bucket Management (Everyone) ─────────────────────────────
-
+    // Bucket management
     addToBucket: (track) => {
       if (!socket || !isConnected) return;
       socket.emit('bucket:add', {
@@ -363,7 +320,6 @@ const PartyRoom = (() => {
         songId: track.id,
         title: track.title,
         artist: track.artist,
-        image: track.image || track.thumb,
         addedBy: currentPartyName,
       });
     },
@@ -375,11 +331,70 @@ const PartyRoom = (() => {
         songId,
       });
     },
+
+    playFromBucket: (songId) => {
+      if (!socket || !isConnected) return;
+      const track = PartyState.bucket.find(b => b.songId === songId);
+      if (track) {
+        socket.emit('playback:play', {
+          roomId: PartyState.roomId,
+          currentSong: { id: track.songId, title: track.title, artist: track.artist },
+          currentTime: 0,
+        });
+      }
+    },
+
+    // Role management
+    requestDJ: () => {
+      if (!socket || !isConnected) return;
+      socket.emit('role:requestDJ', {
+        roomId: PartyState.roomId,
+        userId: PartyState.userId,
+        partyName: currentPartyName,
+      });
+    },
+
+    approveDJ: (userId) => {
+      if (!socket || !isConnected) return;
+      socket.emit('role:approveDJ', {
+        roomId: PartyState.roomId,
+        userId,
+      });
+    },
+
+    rejectDJRequest: (userId) => {
+      if (!socket || !isConnected) return;
+      socket.emit('role:rejectDJ', {
+        roomId: PartyState.roomId,
+        userId,
+      });
+    },
+
+    // Chat
+    sendMessage: (text) => {
+      if (!socket || !isConnected) return;
+      socket.emit('message:send', {
+        roomId: PartyState.roomId,
+        text,
+        partyName: currentPartyName,
+      });
+    },
+
+    // Sync helpers
+    syncPlaybackTime: () => {
+      if (!socket || !isConnected) return;
+      socket.emit('playback:syncTime', {
+        roomId: PartyState.roomId,
+        currentTime: PartyState.currentTime,
+      });
+    },
   };
 })();
 
-// Load saved party name
-const savedPartyName = localStorage.getItem('mu_labz_party_name');
-if (savedPartyName) {
-  PartyRoom.setPartyName(savedPartyName);
-}
+// Load party name from storage on init
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('mu_labz_party_name');
+  if (saved) {
+    PartyRoom.setPartyName(saved);
+  }
+});

@@ -1,5 +1,12 @@
 /**
- * Pages/party.js — Party Room page renderer (IMPROVED UI)
+ * Pages/party.js — Party Room page renderer (REDESIGNED - NO CHAT, 3 SECTIONS)
+ * 
+ * Layout:
+ * - Header: Room name, URL, user count, leave button
+ * - Search section: Live search with thumbnails (left sidebar)
+ * - Bucket section: Song queue (left sidebar under search)
+ * - Users section: User list with removal buttons for DJ (right sidebar)
+ * - Mini player: Center (same as before)
  */
 
 const PartyPage = (() => {
@@ -62,8 +69,8 @@ const PartyPage = (() => {
       <div class="party-modal">
         <h2>Create Party Room</h2>
         <div class="form-group">
-          <label>Party Name</label>
-          <input type="text" id="party-name-input" placeholder="Your name?" maxlength="50">
+          <label>Your Name</label>
+          <input type="text" id="party-name-input" placeholder="What should we call you?" maxlength="50">
         </div>
         <div class="form-group">
           <label>Room Name</label>
@@ -82,13 +89,13 @@ const PartyPage = (() => {
             </label>
             <label class="radio-option">
               <input type="radio" name="room-type" value="private">
-              <span>Private (password)</span>
+              <span>Private (4-digit passcode)</span>
             </label>
           </div>
         </div>
         <div class="form-group" id="password-group" style="display: none;">
-          <label>Password</label>
-          <input type="password" id="password-input" maxlength="50">
+          <label>Passcode (4 digits, leave empty for auto-generated)</label>
+          <input type="text" id="password-input" placeholder="Leave empty - will auto-generate" maxlength="4" pattern="[0-9]*" inputmode="numeric">
         </div>
         <div class="modal-actions">
           <button class="btn-secondary cancel-btn">Cancel</button>
@@ -130,6 +137,12 @@ const PartyPage = (() => {
         modal.remove();
       };
       document.addEventListener('party:roomCreated', handler);
+
+      const errorHandler = (e) => {
+        showToast('Error: ' + (e.detail?.message || 'Failed to create room'));
+        document.removeEventListener('party:error', errorHandler);
+      };
+      document.addEventListener('party:error', errorHandler);
     });
 
     modal.addEventListener('click', (e) => {
@@ -144,16 +157,16 @@ const PartyPage = (() => {
       <div class="party-modal">
         <h2>Join Party Room</h2>
         <div class="form-group">
-          <label>Party Name</label>
-          <input type="text" id="party-name-input" placeholder="Your name?" maxlength="50">
+          <label>Your Name</label>
+          <input type="text" id="party-name-input" placeholder="What should we call you?" maxlength="50">
         </div>
         <div class="form-group">
-          <label>Room Code</label>
-          <input type="text" id="room-id-input" placeholder="Enter room code" maxlength="100">
+          <label>Room Code or URL</label>
+          <input type="text" id="room-id-input" placeholder="Enter room code or paste URL" maxlength="200">
         </div>
         <div class="form-group" id="password-group" style="display: none;">
-          <label>Password</label>
-          <input type="password" id="password-input" maxlength="50">
+          <label>4-Digit Passcode</label>
+          <input type="text" id="password-input" placeholder="1234" maxlength="4" pattern="[0-9]*" inputmode="numeric">
         </div>
         <div class="modal-actions">
           <button class="btn-secondary cancel-btn">Cancel</button>
@@ -173,6 +186,7 @@ const PartyPage = (() => {
         return;
       }
 
+      // Extract room ID if URL is provided
       if (roomId.includes('#party/')) {
         roomId = roomId.split('#party/')[1].split('?')[0];
       }
@@ -180,22 +194,32 @@ const PartyPage = (() => {
       const password = modal.querySelector('#password-input').value || null;
       PartyRoom.setPartyName(partyName);
       PartyRoom.init();
+      
+      // Try to join - backend will determine if room is public or private
       PartyRoom.joinRoom(roomId, password);
 
       const handler = () => {
         document.removeEventListener('party:roomJoined', handler);
+        document.removeEventListener('party:error', errorHandler);
         Router.navigate('party', { roomId: roomId });
         modal.remove();
       };
-      document.addEventListener('party:roomJoined', handler);
 
       const errorHandler = (e) => {
-        if (e.detail && e.detail.type === 'JOIN_FAILED') {
-          showToast('Failed to join: ' + (e.detail.message || 'Unknown error'));
+        if (e.detail && (e.detail.type === 'ROOM_NOT_FOUND' || e.detail.type === 'INVALID_PASSWORD' || e.detail.type === 'ROOM_FULL')) {
+          const msg = e.detail.type === 'INVALID_PASSWORD' ? 'Wrong passcode' : e.detail.message;
+          showToast('Error: ' + msg);
+          
+          // Show password group if invalid password
+          if (e.detail.type === 'INVALID_PASSWORD') {
+            modal.querySelector('#password-group').style.display = 'block';
+          }
+          
           document.removeEventListener('party:error', errorHandler);
-          modal.remove();
         }
       };
+
+      document.addEventListener('party:roomJoined', handler);
       document.addEventListener('party:error', errorHandler);
     });
 
@@ -209,20 +233,57 @@ const PartyPage = (() => {
     const isDJ = state.role === 'dj';
     const totalUsers = state.users.length + state.djs.length;
 
+    // Generate shareable URL
+    const baseUrl = window.location.origin + window.location.pathname;
+    const shareUrl = `${baseUrl}#party/${roomId}`;
+
     container.innerHTML = `
       <div class="party-room-container">
         <!-- Header -->
         <div class="party-header">
-          <div>
+          <div class="party-header-info">
             <h1>${escapeHtml(state.roomName)}</h1>
-            <p>Code: <code>${roomId.substring(0, 8)}</code> | ${isDJ ? '👑 DJ' : '🎧 Guest'} | Users: ${totalUsers}</p>
+            <p style="margin: 0.25rem 0 0;">
+              <span class="header-role">${isDJ ? '👑 DJ' : '🎧 Guest'}</span>
+              <span class="header-users">👥 ${totalUsers}</span>
+            </p>
           </div>
-          <button class="btn-secondary leave-btn">Leave</button>
+          
+          <div class="party-header-url">
+            <label>Room URL:</label>
+            <div class="url-box">
+              <input type="text" readonly value="${shareUrl}" class="url-input">
+              <button class="btn-copy" onclick="navigator.clipboard.writeText('${shareUrl}'); showToast('URL copied!')">Copy</button>
+            </div>
+            ${state.roomType === 'private' ? `<small>Passcode: <strong>${state.roomPassword}</strong></small>` : '<small>Public room</small>'}
+          </div>
+
+          <button class="btn-secondary leave-btn">Leave Room</button>
         </div>
 
         <!-- Main Content -->
         <div class="party-content">
-          <!-- Center: Now Playing -->
+          <!-- Left Sidebar: Search & Bucket -->
+          <div class="party-left-sidebar">
+            <!-- Search Section -->
+            <div class="party-section">
+              <h3>🔍 Find Songs</h3>
+              <div class="search-box">
+                <input type="text" id="party-search-input" placeholder="Search songs..." maxlength="100">
+              </div>
+              <div id="party-search-results" class="search-results" style="display: none;"></div>
+            </div>
+
+            <!-- Bucket Section -->
+            <div class="party-section">
+              <h3>🎵 Queue (${state.bucket.length})</h3>
+              <div id="party-bucket-list" class="bucket-list">
+                ${state.bucket.length === 0 ? '<p class="empty-msg">No songs in queue</p>' : ''}
+              </div>
+            </div>
+          </div>
+
+          <!-- Center: Mini Player -->
           <div class="party-center">
             <div class="party-player">
               ${state.currentSong ? `
@@ -237,17 +298,23 @@ const PartyPage = (() => {
                 </div>
               ` : `
                 <div class="np-empty">
-                  <p>♪ No song playing yet</p>
+                  <p>♪ No song playing</p>
+                  <p style="font-size: 0.85rem; color: #999;">Add songs to queue to get started</p>
                 </div>
               `}
 
               ${isDJ ? `
                 <div class="dj-controls">
-                  <button id="party-prev-btn">⏮</button>
-                  <button id="party-play-btn">▶</button>
-                  <button id="party-next-btn">⏭</button>
+                  <button id="party-play-btn" class="btn-dj-control" title="Play/Pause">
+                    ${state.isPlaying ? '⏸' : '▶'}
+                  </button>
+                  <button id="party-next-btn" class="btn-dj-control" title="Skip to next">⏭</button>
                 </div>
-              ` : ''}
+              ` : `
+                <div class="guest-info">
+                  <p>🎧 Only the DJ can control playback</p>
+                </div>
+              `}
 
               <div class="progress-bar">
                 <div class="progress-fill"></div>
@@ -256,41 +323,12 @@ const PartyPage = (() => {
             </div>
           </div>
 
-          <!-- Sidebar -->
-          <div class="party-sidebar">
-            <!-- Search & Bucket -->
+          <!-- Right Sidebar: Users -->
+          <div class="party-right-sidebar">
             <div class="party-section">
-              <h3>🎵 Find & Add Songs</h3>
-              <div class="search-box">
-                <input type="text" id="party-search-input" placeholder="Search songs..." maxlength="100">
-              </div>
-              <div id="party-search-results" class="search-results" style="display: none;"></div>
-
-              <h3 style="margin-top: 1.5rem;">Bucket (${state.bucket.length})</h3>
-              <div id="party-bucket-list" class="bucket-list">
-                ${state.bucket.length === 0 ? '<p class="empty-msg">No songs yet</p>' : ''}
-              </div>
-            </div>
-
-            <!-- Users & Chat -->
-            <div class="party-section" style="margin-top: 2rem;">
-              ${isDJ ? `
-                <div class="users-info">
-                  <h3>👥 Users (${totalUsers})</h3>
-                  <div class="users-list">
-                    ${state.djs.map(u => `<div class="user-item dj"><span>👑</span> ${escapeHtml(u.partyName)}</div>`).join('')}
-                    ${state.users.map(u => `<div class="user-item guest">${escapeHtml(u.partyName)}</div>`).join('')}
-                  </div>
-                </div>
-              ` : `
-                <p style="text-align: center; color: #999; font-size: 0.9rem;">👥 ${totalUsers} ${totalUsers === 1 ? 'person' : 'people'} in room</p>
-              `}
-
-              <h3 style="margin-top: 1.5rem;">💬 Chat</h3>
-              <div id="party-chat-messages" class="chat-messages"></div>
-              <div class="chat-input">
-                <input type="text" id="party-chat-input" placeholder="Say something..." maxlength="200">
-                <button id="party-chat-send-btn">Send</button>
+              <h3>👥 Users in Room</h3>
+              <div id="party-users-list" class="users-list">
+                ${_generateUsersList(state, isDJ)}
               </div>
             </div>
           </div>
@@ -302,11 +340,47 @@ const PartyPage = (() => {
     _updateUIState(container);
   }
 
+  function _generateUsersList(state, isDJ) {
+    let html = '';
+
+    // DJs
+    if (state.djs && state.djs.length > 0) {
+      state.djs.forEach(user => {
+        html += `
+          <div class="user-item user-item-dj">
+            <div class="user-info">
+              <span class="user-role">👑</span>
+              <span class="user-name">${escapeHtml(user.partyName)}</span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // Guests
+    if (state.users && state.users.length > 0) {
+      state.users.forEach(user => {
+        html += `
+          <div class="user-item user-item-guest">
+            <div class="user-info">
+              <span class="user-name">${escapeHtml(user.partyName)}</span>
+            </div>
+            ${isDJ ? `
+              <button class="btn-remove-user" data-user-id="${user.userId}" title="Remove user">✕</button>
+            ` : ''}
+          </div>
+        `;
+      });
+    }
+
+    return html || '<p class="empty-msg">No users yet</p>';
+  }
+
   function _attachPartyEventListeners(container, roomId) {
     const state = PartyRoom.getState();
     const isDJ = state.role === 'dj';
 
-    // Leave
+    // Leave button
     container.querySelector('.leave-btn')?.addEventListener('click', () => {
       if (confirm('Leave room?')) {
         PartyRoom.leaveRoom();
@@ -316,15 +390,34 @@ const PartyPage = (() => {
 
     // DJ Controls
     if (isDJ) {
-      container.querySelector('#party-prev-btn')?.addEventListener('click', () => PartyRoom.skipToPrevious?.());
       container.querySelector('#party-play-btn')?.addEventListener('click', () => {
-        if (state.isPlaying) PartyRoom.pausePlayback?.();
-        else PartyRoom.resumePlayback?.();
+        if (state.isPlaying) PartyRoom.pausePlayback();
+        else if (state.currentSong) PartyRoom.resumePlayback();
+        else if (state.bucket.length > 0) {
+          PartyRoom.skipToNext();
+        } else {
+          showToast('Add songs to queue first');
+        }
       });
-      container.querySelector('#party-next-btn')?.addEventListener('click', () => PartyRoom.skipToNext?.());
+
+      container.querySelector('#party-next-btn')?.addEventListener('click', () => {
+        PartyRoom.skipToNext();
+      });
+
+      // User removal buttons
+      container.querySelectorAll('.btn-remove-user').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const userId = e.target.dataset.userId;
+          const user = state.users.find(u => u.userId === userId);
+          if (user && confirm(`Remove ${user.partyName} from room?`)) {
+            PartyRoom.removeUser(userId);
+            showToast(`Removed ${user.partyName}`);
+          }
+        });
+      });
     }
 
-    // Search
+    // Search functionality
     let searchTimer;
     const searchInput = container.querySelector('#party-search-input');
     searchInput?.addEventListener('input', (e) => {
@@ -339,27 +432,27 @@ const PartyPage = (() => {
       searchTimer = setTimeout(() => _performSearch(container, query), 300);
     });
 
-    // Chat
-    const chatInput = container.querySelector('#party-chat-input');
-    const chatSendBtn = container.querySelector('#party-chat-send-btn');
-    
-    const sendMessage = () => {
-      const text = chatInput.value.trim();
-      if (text) {
-        PartyRoom.sendMessage(text);
-        chatInput.value = '';
-      }
-    };
+    // Event listeners for real-time updates
+    const updateHandler = () => _updateUIState(container);
+    const usersUpdateHandler = () => _updateUsersUI(container);
 
-    chatSendBtn?.addEventListener('click', sendMessage);
-    chatInput?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendMessage();
-    });
+    document.addEventListener('party:bucketAdd', updateHandler);
+    document.addEventListener('party:bucketRemove', updateHandler);
+    document.addEventListener('party:play', updateHandler);
+    document.addEventListener('party:pause', updateHandler);
+    document.addEventListener('party:next', updateHandler);
+    document.addEventListener('party:userJoined', usersUpdateHandler);
+    document.addEventListener('party:userLeft', usersUpdateHandler);
+    document.addEventListener('party:userRemoved', usersUpdateHandler);
 
-    // Event listeners for updates
-    document.addEventListener('party:messageNew', () => _updateChatUI(container));
-    document.addEventListener('party:bucketUpdate', () => _updateBucketUI(container));
-    document.addEventListener('party:stateChange', () => _updateUIState(container));
+    listeners.bucketAdd = { event: 'party:bucketAdd', handler: updateHandler };
+    listeners.bucketRemove = { event: 'party:bucketRemove', handler: updateHandler };
+    listeners.play = { event: 'party:play', handler: updateHandler };
+    listeners.pause = { event: 'party:pause', handler: updateHandler };
+    listeners.next = { event: 'party:next', handler: updateHandler };
+    listeners.userJoined = { event: 'party:userJoined', handler: usersUpdateHandler };
+    listeners.userLeft = { event: 'party:userLeft', handler: usersUpdateHandler };
+    listeners.userRemoved = { event: 'party:userRemoved', handler: usersUpdateHandler };
   }
 
   async function _performSearch(container, query) {
@@ -368,7 +461,7 @@ const PartyPage = (() => {
     resultsDiv.style.display = 'block';
 
     try {
-      const tracks = await API.search(query, 10);
+      const tracks = await API.search(query, 15);
       
       if (!tracks || tracks.length === 0) {
         resultsDiv.innerHTML = '<div class="empty-msg">No results found</div>';
@@ -377,11 +470,12 @@ const PartyPage = (() => {
 
       resultsDiv.innerHTML = tracks.map(track => `
         <div class="search-result-item">
+          <img src="${track.thumb || track.image || 'assets/placeholder.png'}" alt="${escapeHtml(track.title)}" class="result-thumb" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 50 50%22%3E%3Crect fill=%22%23333%22 width=%2250%22 height=%2250%22/%3E%3Ctext x=%2725%22 y=%2725%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23666%22 font-size=%2224%22%3E♪%3C/text%3E%3C/svg%3E'">
           <div class="result-info">
             <p class="result-title">${escapeHtml(track.title)}</p>
             <p class="result-artist">${escapeHtml(track.artist)}</p>
           </div>
-          <button class="btn-add result-add-btn" data-track-id="${track.id}" data-track='${JSON.stringify(track)}'>+</button>
+          <button class="btn-add result-add-btn" data-track='${JSON.stringify(track)}' title="Add to queue">+</button>
         </div>
       `).join('');
 
@@ -389,91 +483,98 @@ const PartyPage = (() => {
         btn.addEventListener('click', (e) => {
           const track = JSON.parse(e.target.dataset.track);
           PartyRoom.addToBucket(track);
-          showToast(`Added "${escapeHtml(track.title)}" to bucket`);
-          container.querySelector('#party-search-input').value = '';
-          resultsDiv.style.display = 'none';
+          showToast(`Added "${escapeHtml(track.title)}" to queue`);
         });
       });
     } catch (err) {
-      resultsDiv.innerHTML = '<div class="empty-msg">Search failed</div>';
+      console.error('[PartyPage] Search error:', err);
+      resultsDiv.innerHTML = '<div class="empty-msg">Search error</div>';
     }
   }
 
   function _updateBucketUI(container) {
     const state = PartyRoom.getState();
-    const isDJ = state.role === 'dj';
     const bucketList = container.querySelector('#party-bucket-list');
 
-    if (!bucketList) return;
-
-    if (state.bucket.length === 0) {
-      bucketList.innerHTML = '<p class="empty-msg">No songs yet</p>';
-      return;
-    }
-
-    bucketList.innerHTML = state.bucket.map((item, idx) => `
-      <div class="bucket-item">
-        <div class="bucket-info">
-          <p class="bucket-title">${escapeHtml(item.title)}</p>
-          <p class="bucket-artist">${escapeHtml(item.artist)}</p>
-          <p class="bucket-by">by ${escapeHtml(item.addedBy)}</p>
-        </div>
-        <div class="bucket-actions">
-          ${isDJ ? `<button class="btn-small play-btn" data-id="${item.id}">▶</button>` : ''}
-          <button class="btn-small remove-btn" data-id="${item.id}">✕</button>
-        </div>
-      </div>
-    `).join('');
-
-    if (isDJ) {
-      bucketList.querySelectorAll('.play-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const item = state.bucket.find(s => s.id === btn.dataset.id);
-          if (item) PartyRoom.playSong?.(item);
-        });
-      });
-    }
-
-    bucketList.querySelectorAll('.remove-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        PartyRoom.removeFromBucket?.(btn.dataset.id);
-      });
-    });
+    bucketList.innerHTML = state.bucket.length === 0 
+      ? '<p class="empty-msg">No songs in queue</p>'
+      : state.bucket.map((item, idx) => `
+          <div class="bucket-item">
+            <div class="bucket-info">
+              <p class="bucket-title">${escapeHtml(item.title)}</p>
+              <p class="bucket-artist">${escapeHtml(item.artist)}</p>
+              <p class="bucket-by">by ${escapeHtml(item.addedBy)}</p>
+            </div>
+          </div>
+        `).join('');
   }
 
-  function _updateChatUI(container) {
+  function _updateUsersUI(container) {
     const state = PartyRoom.getState();
-    const messages = container.querySelector('#party-chat-messages');
+    const isDJ = state.role === 'dj';
+    const usersList = container.querySelector('#party-users-list');
 
-    if (!messages) return;
+    if (usersList) {
+      usersList.innerHTML = _generateUsersList(state, isDJ);
 
-    messages.innerHTML = state.messages.map(msg => `
-      <div class="chat-msg">
-        <p class="chat-author"><strong>${escapeHtml(msg.partyName)}</strong></p>
-        <p class="chat-text">${escapeHtml(msg.text)}</p>
-      </div>
-    `).join('');
+      // Re-attach remove buttons
+      if (isDJ) {
+        usersList.querySelectorAll('.btn-remove-user').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const userId = e.target.dataset.userId;
+            const user = state.users.find(u => u.userId === userId);
+            if (user && confirm(`Remove ${user.partyName} from room?`)) {
+              PartyRoom.removeUser(userId);
+              showToast(`Removed ${user.partyName}`);
+            }
+          });
+        });
+      }
+    }
 
-    messages.scrollTop = messages.scrollHeight;
+    // Update header user count
+    const totalUsers = state.users.length + state.djs.length;
+    container.querySelector('.header-users').textContent = `👥 ${totalUsers}`;
   }
 
   function _updateUIState(container) {
     const state = PartyRoom.getState();
+
+    // Update bucket
     _updateBucketUI(container);
-    _updateChatUI(container);
-    
-    if (state.currentSong) {
-      const playBtn = container.querySelector('#party-play-btn');
-      if (playBtn) playBtn.textContent = state.isPlaying ? '⏸' : '▶';
+
+    // Update now playing
+    const npContainer = container.querySelector('.now-playing');
+    if (npContainer) {
+      if (state.currentSong) {
+        npContainer.innerHTML = `
+          <div class="np-cover">
+            <img src="${state.currentSong.image || 'assets/placeholder.png'}" alt="Cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23333%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23666%22 font-size=%2246%22%3E🎵%3C/text%3E%3C/svg%3E'">
+          </div>
+          <div class="np-info">
+            <h2>${escapeHtml(state.currentSong.title)}</h2>
+            <p>${escapeHtml(state.currentSong.artist)}</p>
+          </div>
+        `;
+      }
+    }
+
+    // Update play button for DJ
+    const playBtn = container.querySelector('#party-play-btn');
+    if (playBtn) {
+      playBtn.textContent = state.isPlaying ? '⏸' : '▶';
     }
   }
 
-  function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  return { render };
+  return {
+    render,
+  };
 })();
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}

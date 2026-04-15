@@ -1,8 +1,8 @@
 /**
- * backend/server.js — Party Room Backend (FIXED & IMPROVED)
+ * backend/server.js — Party Room Backend
  *
  * Node.js + Express + Socket.IO server
- * Handles room management, real-time sync, user connections, and user removal
+ * Handles room management, real-time sync, and user connections
  *
  * Run: npm install express socket.io uuid cors
  * Then: node server.js
@@ -18,12 +18,13 @@ const app = express();
 const server = http.createServer(app);
 
 // CORS Configuration - Allow requests from both local and production
+// UPDATE: Add your Render backend URL here after deployment
 const corsOrigins = [
   'http://localhost:3000',
   'http://localhost:8000',
   'http://127.0.0.1:3000',
   'https://mulabz.vercel.app',
-  'https://mu-labz-backend.onrender.com',
+  'https://mulabz.onrender.com', // Render backend URL (UPDATE AFTER DEPLOYMENT)
 ];
 
 const corsOptions = {
@@ -34,8 +35,10 @@ const corsOptions = {
   maxAge: 86400
 };
 
+// Apply CORS to Express
 app.use(cors(corsOptions));
 
+// Socket.IO with matching CORS
 const io = socketIO(server, {
   cors: corsOptions,
   allowEIO3: true,
@@ -73,20 +76,17 @@ const socketToUser = new Map(); // socket id -> { userId, roomId }
 
 function createRoom(roomName, maxUsers, roomType, password, creatorId, creatorPartyName) {
   const roomId = uuidv4().substring(0, 8);
-  // Generate 4-digit passcode for private rooms
-  const roomPassword = roomType === 'private' ? (password || generatePasscode()) : null;
-  
   const room = {
     id: roomId,
     name: roomName,
     type: roomType,
-    password: roomPassword,
+    password: roomType === 'private' ? password : null,
     maxUsers,
     createdAt: Date.now(),
     creatorId,
     
     // Users
-    djs: [{ userId: creatorId, partyName: creatorPartyName, socketId: null }],
+    djs: [{ userId: creatorId, partyName: creatorPartyName }],
     users: [],
     
     // Playback state
@@ -96,15 +96,14 @@ function createRoom(roomName, maxUsers, roomType, password, creatorId, creatorPa
     
     // Bucket list
     bucket: [],
+    
+    // Join requests (for public rooms)
+    pendingRequests: [],
   };
   
   rooms.set(roomId, room);
-  console.log(`[Room] Created room: ${roomId} - ${roomName} (${roomType}) - Pass: ${roomPassword}`);
+  console.log(`[Room] Created room: ${roomId} - ${roomName}`);
   return room;
-}
-
-function generatePasscode() {
-  return String(Math.floor(Math.random() * 9000) + 1000); // 4-digit number
 }
 
 function getRoom(roomId) {
@@ -118,7 +117,7 @@ function deleteRoom(roomId) {
     console.log(`[Room] Deleted room: ${roomId}`);
     
     // Notify all users in room
-    io.to(roomId).emit('room:closed', { reason: 'Room ended' });
+    io.to(roomId).emit('room:closed', { reason: 'DJ left' });
   }
 }
 
@@ -126,6 +125,7 @@ function deleteRoom(roomId) {
 
 io.on('connection', (socket) => {
   console.log(`✅ [Socket] User connected: ${socket.id}`);
+  console.log(`📍 [Socket] From origin: ${socket.handshake.headers.origin}`);
 
   socket.emit('connect:success', { 
     message: 'Connected to Party Room backend',
@@ -133,7 +133,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('room:create', (data) => {
-    const userId = socket.id;
+    const userId = socket.id; // Use socket id as temporary userId
     const { roomName, maxUsers, roomType, password, partyName } = data;
 
     const room = createRoom(roomName, maxUsers, roomType, password, userId, partyName);
@@ -142,20 +142,14 @@ io.on('connection', (socket) => {
     socketToUser.set(socket.id, { userId, roomId: room.id });
     userSockets.set(userId, socket.id);
 
-    // Update DJ with socket ID
-    const dj = room.djs.find(d => d.userId === userId);
-    if (dj) dj.socketId = socket.id;
-
     socket.emit('room:created', {
       roomId: room.id,
       roomName: room.name,
-      roomType: room.type,
-      roomPassword: room.password,
       creatorId: userId,
       userId,
     });
 
-    console.log(`[Socket] ${partyName} created room ${room.id} (${roomType})`);
+    console.log(`[Socket] ${partyName} created room ${room.id}`);
   });
 
   socket.on('room:join', (data) => {
@@ -165,28 +159,38 @@ io.on('connection', (socket) => {
 
     if (!room) {
       socket.emit('error', { type: 'ROOM_NOT_FOUND', message: 'Room does not exist' });
-      console.log(`[Error] User tried to join non-existent room: ${roomId}`);
       return;
     }
 
-    // Check password for private rooms
-    if (room.type === 'private') {
-      if (!password || room.password !== password) {
-        socket.emit('error', { type: 'INVALID_PASSWORD', message: 'Invalid room passcode' });
-        console.log(`[Error] Invalid password for room ${roomId}`);
-        return;
-      }
+    if (room.type === 'private' && room.password !== password) {
+      socket.emit('error', { type: 'INVALID_PASSWORD', message: 'Invalid room password' });
+      return;
     }
 
-    // Check room capacity
     if (room.users.length + room.djs.length >= room.maxUsers) {
       socket.emit('error', { type: 'ROOM_FULL', message: 'Room is full' });
-      console.log(`[Error] Room ${roomId} is full`);
       return;
     }
 
-    // Add user to room (both public and private rooms join directly now)
-    const user = { userId, partyName, socketId: socket.id, role: 'guest' };
+    // For public rooms, send join request
+    if (room.type === 'public') {
+      room.pendingRequests.push({ userId, partyName, requestedAt: Date.now() });
+      
+      // Notify DJs of join request
+      const djSocketIds = room.djs.map(dj => userSockets.get(dj.userId)).filter(Boolean);
+      io.to(djSocketIds).emit('joinRequest:new', {
+        userId,
+        partyName,
+        roomId,
+      });
+      
+      socket.emit('joinRequest:pending', { message: 'Join request sent to DJ' });
+      console.log(`[Socket] ${partyName} requested to join ${roomId}`);
+      return;
+    }
+
+    // Private room: direct join
+    const user = { userId, partyName, role: 'guest' };
     room.users.push(user);
     
     socket.join(room.id);
@@ -197,7 +201,6 @@ io.on('connection', (socket) => {
     socket.emit('room:joined', {
       roomId: room.id,
       roomName: room.name,
-      roomType: room.type,
       userId,
       role: 'guest',
       djs: room.djs,
@@ -208,7 +211,7 @@ io.on('connection', (socket) => {
       currentTime: room.currentTime,
     });
 
-    // Notify others that user joined
+    // Notify others
     io.to(room.id).emit('user:joined', {
       userId,
       partyName,
@@ -218,45 +221,36 @@ io.on('connection', (socket) => {
     console.log(`[Socket] ${partyName} joined room ${roomId}`);
   });
 
-  // USER REMOVAL (DJ only)
-  socket.on('user:remove', (data) => {
-    const { roomId, userIdToRemove } = data;
+  // DJ approval for join requests (public rooms)
+  socket.on('joinRequest:approve', (data) => {
+    const { roomId, userId: requestingUserId } = data;
     const room = getRoom(roomId);
-    const removerUser = socketToUser.get(socket.id);
-
     if (!room) return;
-    if (!removerUser) return;
 
-    // Check if current user is DJ
-    const removerIsDJ = room.djs.find(d => d.userId === removerUser.userId);
-    if (!removerIsDJ) {
-      socket.emit('error', { type: 'NOT_AUTHORIZED', message: 'Only DJ can remove users' });
-      return;
-    }
-
-    // Find and remove user from room
-    const userToRemove = room.users.find(u => u.userId === userIdToRemove);
-    if (userToRemove) {
-      room.users = room.users.filter(u => u.userId !== userIdToRemove);
+    room.pendingRequests = room.pendingRequests.filter(r => r.userId !== requestingUserId);
+    
+    // Find user in pending and add to users
+    const requestingSocket = userSockets.get(requestingUserId);
+    if (requestingSocket) {
+      const req = data.pendingRequest || {};
+      room.users.push({ userId: requestingUserId, partyName: req.partyName, role: 'guest' });
       
-      // Notify removed user
-      const userSocket = userSockets.get(userIdToRemove);
-      if (userSocket) {
-        io.to(userSocket).emit('user:removed', { reason: 'DJ removed you from room' });
-        io.sockets.sockets.get(userSocket)?.leave(roomId);
-      }
-
-      // Notify room that user was removed
-      io.to(roomId).emit('user:removed', {
-        userId: userIdToRemove,
-        partyName: userToRemove.partyName,
+      // Notify requesting user
+      io.to(requestingSocket).emit('joinRequest:approved', {
+        roomId,
+        roomName: room.name,
       });
-
-      console.log(`[User] ${userToRemove.partyName} removed from ${roomId} by DJ`);
+      
+      // Broadcast to room
+      io.to(roomId).emit('user:joined', {
+        userId: requestingUserId,
+        partyName: req.partyName,
+        role: 'guest',
+      });
     }
   });
 
-  // DJ Controls - Play
+  // Playback events (DJ only)
   socket.on('playback:play', (data) => {
     const { roomId, currentSong, currentTime } = data;
     const room = getRoom(roomId);
@@ -274,7 +268,6 @@ io.on('connection', (socket) => {
     console.log(`[Playback] Playing: ${currentSong?.title} in ${roomId}`);
   });
 
-  // DJ Controls - Pause
   socket.on('playback:pause', (data) => {
     const { roomId, currentTime } = data;
     const room = getRoom(roomId);
@@ -288,7 +281,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // DJ Controls - Resume
   socket.on('playback:resume', (data) => {
     const { roomId, currentTime } = data;
     const room = getRoom(roomId);
@@ -302,7 +294,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // DJ Controls - Seek
   socket.on('playback:seek', (data) => {
     const { roomId, currentTime } = data;
     const room = getRoom(roomId);
@@ -315,7 +306,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // DJ Controls - Skip to Next
   socket.on('playback:next', (data) => {
     const { roomId } = data;
     const room = getRoom(roomId);
@@ -328,7 +318,6 @@ io.on('connection', (socket) => {
         id: nextItem.songId,
         title: nextItem.title,
         artist: nextItem.artist,
-        image: nextItem.image,
       };
     } else {
       room.currentSong = null;
@@ -340,25 +329,23 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('playback:next', {
       currentSong: room.currentSong,
     });
-
-    console.log(`[Playback] Skipped to next in ${roomId}`);
   });
 
-  // Sync playback time
   socket.on('playback:syncTime', (data) => {
     const { roomId, currentTime } = data;
     const room = getRoom(roomId);
     if (!room) return;
 
     room.currentTime = currentTime;
+    // Broadcast sync to all except sender
     socket.to(roomId).emit('playback:syncTime', {
       currentTime,
     });
   });
 
-  // Bucket - Add Song
+  // Bucket events
   socket.on('bucket:add', (data) => {
-    const { roomId, songId, title, artist, image, addedBy } = data;
+    const { roomId, songId, title, artist, addedBy } = data;
     const room = getRoom(roomId);
     if (!room) return;
 
@@ -366,7 +353,6 @@ io.on('connection', (socket) => {
       songId,
       title,
       artist,
-      image,
       addedBy,
       addedAt: Date.now(),
     };
@@ -374,10 +360,9 @@ io.on('connection', (socket) => {
     room.bucket.push(item);
 
     io.to(roomId).emit('bucket:add', item);
-    console.log(`[Bucket] Added to ${roomId}: ${title}`);
+    console.log(`[Bucket] Added song to ${roomId}: ${title}`);
   });
 
-  // Bucket - Remove Song
   socket.on('bucket:remove', (data) => {
     const { roomId, songId } = data;
     const room = getRoom(roomId);
@@ -390,75 +375,158 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Room - Leave
-  socket.on('room:leave', (data) => {
-    const { roomId } = data;
-    const userInfo = socketToUser.get(socket.id);
+  // Role management
+  socket.on('role:requestDJ', (data) => {
+    const { roomId, userId, partyName } = data;
     const room = getRoom(roomId);
+    if (!room) return;
 
-    if (!room || !userInfo) return;
+    // Notify DJs
+    const djSocketIds = room.djs.map(dj => userSockets.get(dj.userId)).filter(Boolean);
+    io.to(djSocketIds).emit('role:djRequest', {
+      userId,
+      partyName,
+      roomId,
+    });
 
-    // Check if DJ left
-    const isDJ = room.djs.find(d => d.userId === userInfo.userId);
+    console.log(`[Role] ${partyName} requested DJ in ${roomId}`);
+  });
 
-    if (isDJ) {
-      // DJ left - close room
-      deleteRoom(roomId);
-    } else {
-      // Guest left - remove from users
-      room.users = room.users.filter(u => u.userId !== userInfo.userId);
-      io.to(roomId).emit('user:left', {
-        userId: userInfo.userId,
+  socket.on('role:approveDJ', (data) => {
+    const { roomId, userId } = data;
+    const room = getRoom(roomId);
+    if (!room) return;
+
+    // Find user and promote to DJ
+    const user = room.users.find(u => u.userId === userId);
+    if (user) {
+      room.users = room.users.filter(u => u.userId !== userId);
+      room.djs.push({ userId, partyName: user.partyName });
+
+      io.to(roomId).emit('role:djApproved', {
+        userId,
+        partyName: user.partyName,
+      });
+
+      console.log(`[Role] User ${userId} promoted to DJ in ${roomId}`);
+    }
+  });
+
+  socket.on('role:rejectDJ', (data) => {
+    const { roomId, userId } = data;
+    const room = getRoom(roomId);
+    if (!room) return;
+
+    const userSock = userSockets.get(userId);
+    if (userSock) {
+      io.to(userSock).emit('role:djRejected', {
+        reason: 'DJ rejected your request',
       });
     }
 
-    socket.leave(roomId);
-    socketToUser.delete(socket.id);
-    userSockets.delete(userInfo.userId);
-
-    console.log(`[Room] User left ${roomId}`);
+    room.pendingRequests = room.pendingRequests.filter(r => r.userId !== userId);
   });
 
-  // Disconnect handler
+  // Chat
+  socket.on('message:send', (data) => {
+    const { roomId, text, partyName } = data;
+    const room = getRoom(roomId);
+    if (!room) return;
+
+    const message = {
+      userId: socket.id,
+      partyName,
+      text,
+      timestamp: Date.now(),
+    };
+
+    // Store in room (optional, for history)
+    if (room.messages === undefined) {
+      room.messages = [];
+    }
+    room.messages.push(message);
+
+    io.to(roomId).emit('message:new', message);
+    console.log(`[Chat] ${partyName} in ${roomId}: ${text}`);
+  });
+
+  // Leave room
+  socket.on('room:leave', (data) => {
+    const { roomId } = data;
+    const room = getRoom(roomId);
+    const userInfo = socketToUser.get(socket.id);
+
+    if (room && userInfo) {
+      const { userId } = userInfo;
+
+      // Remove user from room
+      room.users = room.users.filter(u => u.userId !== userId);
+      room.djs = room.djs.filter(d => d.userId !== userId);
+      room.pendingRequests = room.pendingRequests.filter(r => r.userId !== userId);
+
+      socket.leave(roomId);
+      socketToUser.delete(socket.id);
+      userSockets.delete(userId);
+
+      // Check if room is empty
+      if (room.users.length === 0 && room.djs.length === 0) {
+        deleteRoom(roomId);
+      } else {
+        io.to(roomId).emit('user:left', {
+          userId,
+        });
+      }
+
+      console.log(`[Socket] User ${userId} left room ${roomId}`);
+    }
+  });
+
+  // Disconnect
   socket.on('disconnect', () => {
     const userInfo = socketToUser.get(socket.id);
     if (userInfo) {
-      const room = getRoom(userInfo.roomId);
+      const { roomId, userId } = userInfo;
+      const room = getRoom(roomId);
+
       if (room) {
-        // Check if DJ disconnected
-        const isDJ = room.djs.find(d => d.userId === userInfo.userId);
-        if (isDJ) {
-          deleteRoom(userInfo.roomId);
+        room.users = room.users.filter(u => u.userId !== userId);
+        room.djs = room.djs.filter(d => d.userId !== userId);
+        room.pendingRequests = room.pendingRequests.filter(r => r.userId !== userId);
+
+        if (room.users.length === 0 && room.djs.length === 0) {
+          deleteRoom(roomId);
         } else {
-          room.users = room.users.filter(u => u.userId !== userInfo.userId);
-          io.to(userInfo.roomId).emit('user:left', {
-            userId: userInfo.userId,
-          });
+          io.to(roomId).emit('user:left', { userId });
         }
       }
+
       socketToUser.delete(socket.id);
-      userSockets.delete(userInfo.userId);
+      userSockets.delete(userId);
     }
-    console.log(`❌ [Socket] User disconnected: ${socket.id}`);
+
+    console.log(`[Socket] User disconnected: ${socket.id}`);
   });
 
-  // Error handler
-  socket.on('error', (error) => {
-    console.error(`[Socket Error] ${socket.id}:`, error);
+  // Debug: List active rooms
+  socket.on('debug:rooms', () => {
+    const roomsList = Array.from(rooms.values()).map(r => ({
+      id: r.id,
+      name: r.name,
+      users: r.users.length + r.djs.length,
+      maxUsers: r.maxUsers,
+    }));
+    socket.emit('debug:rooms', roomsList);
   });
 });
 
-// Start server
+// ── Server Startup ────────────────────────────────────────────────
+
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`🚀 Party Room backend running on port ${PORT}`);
-  console.log(`🌐 CORS enabled for: ${corsOrigins.join(', ')}`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-  });
+  console.log(`\n🎵 MU LABZ Party Room Server Running\n`);
+  console.log(`   Socket.IO:  ws://localhost:${PORT}`);
+  console.log(`   HTTP:       http://localhost:${PORT}`);
+  console.log(`   Health:     http://localhost:${PORT}/health`);
+  console.log(`   Rooms:      GET http://localhost:${PORT}/rooms`);
+  console.log(`\n`);
 });
