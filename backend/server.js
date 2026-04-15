@@ -24,7 +24,7 @@ const corsOrigins = [
   'http://localhost:8000',
   'http://127.0.0.1:3000',
   'https://mulabz.vercel.app',
-  'https://mu-labz-backend.onrender.com', // Render backend URL (UPDATE AFTER DEPLOYMENT)
+  'https://mulabz.onrender.com', // Render backend URL (UPDATE AFTER DEPLOYMENT)
 ];
 
 const corsOptions = {

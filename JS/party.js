@@ -55,7 +55,7 @@ const PartyRoom = (() => {
     // DEPLOYED: Update with your Render URL (https://your-service-name.onrender.com)
     const backendUrl = window.location.hostname === 'localhost'
       ? 'http://localhost:3001'
-      : 'https://mu-labz-backend.onrender.com'; // REPLACE with your Render URL
+      : 'https://mulabz.onrender.com'; // REPLACE with your Render URL
 
     console.log('[PartyRoom] Connecting to backend at', backendUrl);
 
