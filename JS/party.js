@@ -64,6 +64,11 @@ const PartyRoom = (() => {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
+      secure: true, // Enable HTTPS for production
+      rejectUnauthorized: false, // Allow self-signed certs
+      extraHeaders: {
+        'Content-Type': 'application/json'
+      }
     });
 
     _attachSocketListeners();
