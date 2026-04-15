@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "MU LABZ Party Room Backend - Real-time collaborative music streaming",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
