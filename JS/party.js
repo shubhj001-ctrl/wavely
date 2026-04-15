@@ -50,10 +50,10 @@ const PartyRoom = (() => {
       return;
     }
 
-    // Connect to backend (adjust URL based on environment)
-    const backendUrl = window.location.hostname === 'localhost'
-      ? 'http://localhost:3001'
-      : window.location.origin;
+    // Connect to backend (MUST be running locally on port 3001)
+    const backendUrl = 'http://localhost:3001';
+    
+    console.log('[PartyRoom] Connecting to backend at', backendUrl);
 
     socket = io(backendUrl, {
       reconnection: true,
