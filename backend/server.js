@@ -16,22 +16,53 @@ const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const server = http.createServer(app);
+
+// CORS Configuration - Allow requests from both local and production
+const corsOrigins = [
+  'http://localhost:3000',
+  'http://localhost:8000',
+  'http://127.0.0.1:3000',
+  'https://mulabz.vercel.app',
+];
+
+const corsOptions = {
+  origin: corsOrigins,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400
+};
+
+// Apply CORS to Express
+app.use(cors(corsOptions));
+
+// Socket.IO with matching CORS
 const io = socketIO(server, {
-  cors: {
-    // Allow requests from localhost (development) and Vercel (production)
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:8000',
-      'https://*.vercel.app',
-      'https://mulabz.vercel.app' // Your deployed frontend
-    ],
-    methods: ['GET', 'POST'],
-    credentials: true
-  },
+  cors: corsOptions,
+  allowEIO3: true,
+  transports: ['websocket', 'polling'],
+  pingInterval: 25000,
+  pingTimeout: 60000
 });
 
-app.use(cors());
 app.use(express.json());
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Rooms list endpoint
+app.get('/rooms', (req, res) => {
+  const roomsList = Array.from(rooms.values()).map(room => ({
+    id: room.id,
+    name: room.name,
+    type: room.type,
+    users: room.users.length + room.djs.length,
+    maxUsers: room.maxUsers,
+  }));
+  res.json(roomsList);
+});
 
 // ── Room Storage ───────────────────────────────────────────────────
 
@@ -91,7 +122,13 @@ function deleteRoom(roomId) {
 // ── Socket Events ───────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
-  console.log(`[Socket] User connected: ${socket.id}`);
+  console.log(`✅ [Socket] User connected: ${socket.id}`);
+  console.log(`📍 [Socket] From origin: ${socket.handshake.headers.origin}`);
+
+  socket.emit('connect:success', { 
+    message: 'Connected to Party Room backend',
+    timestamp: new Date().toISOString()
+  });
 
   socket.on('room:create', (data) => {
     const userId = socket.id; // Use socket id as temporary userId
@@ -478,23 +515,6 @@ io.on('connection', (socket) => {
     }));
     socket.emit('debug:rooms', roomsList);
   });
-});
-
-// ── HTTP Routes ────────────────────────────────────────────────────
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-app.get('/rooms', (req, res) => {
-  const roomsList = Array.from(rooms.values()).map(r => ({
-    id: r.id,
-    name: r.name,
-    users: r.users.length + r.djs.length,
-    maxUsers: r.maxUsers,
-    createdAt: r.createdAt,
-  }));
-  res.json(roomsList);
 });
 
 // ── Server Startup ────────────────────────────────────────────────
