@@ -50,18 +50,22 @@ const PartyRoom = (() => {
       return;
     }
 
-    // Connect to backend
+    // Determine environment
     const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     let backendUrl;
     
     if (isDev) {
       backendUrl = 'http://localhost:3001';
+      console.log('[PartyRoom] 🔧 Development mode - using localhost backend');
     } else {
-      // For production, use Render backend
       backendUrl = 'https://mu-labz-backend.onrender.com';
+      console.log('[PartyRoom] 🌐 Production mode - using Render backend');
+      
+      // Show backend status check
+      _checkBackendHealth(backendUrl);
     }
 
-    console.log('[PartyRoom] Connecting to backend at', backendUrl, '| Dev:', isDev);
+    console.log('[PartyRoom] Connecting to backend at', backendUrl);
 
     socket = io(backendUrl, {
       reconnection: true,
@@ -69,7 +73,7 @@ const PartyRoom = (() => {
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 10,
       reconnectionInitialDelay: 1000,
-      transports: ['websocket', 'polling'], // WebSocket first, then polling fallback
+      transports: ['websocket', 'polling'],
       secure: !isDev,
       rejectUnauthorized: false,
       timeout: 20000,
@@ -80,6 +84,28 @@ const PartyRoom = (() => {
     });
 
     _attachSocketListeners();
+  }
+
+  function _checkBackendHealth(url) {
+    console.log('[PartyRoom] 🏥 Checking backend health...');
+    fetch(`${url}/health`, { 
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      mode: 'cors'
+    })
+      .then(res => res.json())
+      .then(data => {
+        console.log('[PartyRoom] ✅ Backend is ONLINE:', data);
+        document.dispatchEvent(new CustomEvent('party:backendOnline'));
+      })
+      .catch(err => {
+        console.error('[PartyRoom] ❌ Backend is OFFLINE or unreachable');
+        console.error('[PartyRoom] Error:', err.message);
+        console.error('[PartyRoom] ⚠️  Cannot reach: ' + url + '/health');
+        document.dispatchEvent(new CustomEvent('party:backendOffline', { 
+          detail: { url, error: err.message } 
+        }));
+      });
   }
 
   // ── Socket Event Listeners ───────────────────────────────────────

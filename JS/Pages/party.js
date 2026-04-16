@@ -167,7 +167,16 @@ const PartyPage = (() => {
         console.error('[PartyPage] Room creation error:', e.detail);
         showToast('❌ Error: ' + msg);
       };
+
+      const backendOfflineHandler = (e) => {
+        clearInterval(checkConnection);
+        console.error('[PartyPage] Backend offline:', e.detail);
+        showToast('❌ Backend server is offline. Please try again later or contact support.');
+      };
+
       document.addEventListener('party:error', errorHandler);
+      document.addEventListener('party:connectionError', errorHandler);
+      document.addEventListener('party:backendOffline', backendOfflineHandler);
     });
 
     modal.addEventListener('click', (e) => {
@@ -262,9 +271,16 @@ const PartyPage = (() => {
         }
       };
 
+      const backendOfflineHandler = (e) => {
+        clearInterval(checkConnection);
+        console.error('[PartyPage] Backend offline:', e.detail);
+        showToast('❌ Backend server is offline. Please try again later or contact support.');
+      };
+
       document.addEventListener('party:roomJoined', handler);
       document.addEventListener('party:connectionError', errorHandler);
       document.addEventListener('party:error', errorHandler);
+      document.addEventListener('party:backendOffline', backendOfflineHandler);
     });
 
     modal.addEventListener('click', (e) => {
