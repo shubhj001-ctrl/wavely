@@ -203,7 +203,8 @@ const PartyRoom = (() => {
     socket.on('user:removed', (data) => {
       console.log('[PartyRoom] User removed:', data.userId || 'you');
       if (data.userId === PartyState.userId) {
-        // Current user was removed
+        // Current user was removed - clear session and dispatch event
+        PartyRoom.clearSession();
         document.dispatchEvent(new CustomEvent('party:userRemovedSelf', { detail: data }));
       } else {
         // Remove from both users and djs arrays
@@ -220,6 +221,9 @@ const PartyRoom = (() => {
       PartyState.isPlaying = true;
       PartyState.currentSong = data.currentSong;
       PartyState.currentTime = data.currentTime;
+      if (data.currentSong) {
+        PartyState.bucket = PartyState.bucket.filter(b => b.songId !== data.currentSong.id && b.id !== data.currentSong.id);
+      }
       document.dispatchEvent(new CustomEvent('party:play', { detail: data }));
     });
 
@@ -264,11 +268,16 @@ const PartyRoom = (() => {
       console.log('[PartyRoom] Added to bucket:', data.title);
       const item = {
         songId: data.songId,
+        id: data.songId,
         title: data.title,
         artist: data.artist,
         image: data.image,
         addedBy: data.addedBy,
         addedAt: data.addedAt,
+        source: data.source || 'jiosaavn',
+        audio: data.audio,
+        duration: data.duration || 0,
+        genre: data.genre,
       };
       PartyState.bucket.push(item);
       document.dispatchEvent(new CustomEvent('party:bucketAdd', { detail: item }));
@@ -407,10 +416,14 @@ const PartyRoom = (() => {
         socket.emit('playback:play', {
           roomId: PartyState.roomId,
           currentSong: { 
-            id: track.songId, 
+            id: track.songId || track.id,
             title: track.title, 
             artist: track.artist,
             image: track.image,
+            source: track.source || 'jiosaavn',
+            audio: track.audio,
+            duration: track.duration,
+            genre: track.genre,
           },
           currentTime: 0,
         });
@@ -468,6 +481,10 @@ const PartyRoom = (() => {
         artist: track.artist,
         image: track.image || track.thumb,
         addedBy: currentPartyName,
+        source: track.source || 'jiosaavn',
+        audio: track.audio,
+        duration: track.duration || 0,
+        genre: track.genre,
       });
     },
 

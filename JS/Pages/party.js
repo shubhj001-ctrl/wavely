@@ -559,24 +559,61 @@ const PartyPage = (() => {
     // Event listeners for real-time updates
     const updateHandler = () => _updateUIState(container);
     const usersUpdateHandler = () => _updateUsersUI(container);
+    
+    // Handler to actually play songs in Player module
+    const playHandler = (event) => {
+      _updateUIState(container);
+      const song = event.detail?.currentSong;
+      if (song && window.Player && typeof Player.play === 'function') {
+        console.log('[PartyPage] Calling Player.play() for:', song.title);
+        // Pass just the song object and empty queue since party room manages queue separately
+        Player.play(song, [song], 0);
+      }
+    };
+
+    const nextHandler = (event) => {
+      _updateUIState(container);
+      const song = event.detail?.currentSong;
+      if (song && window.Player && typeof Player.play === 'function') {
+        console.log('[PartyPage] Calling Player.play() for next:', song.title);
+        Player.play(song, [song], 0);
+      }
+    };
+
+    // Handler for when current user is removed from party
+    const userRemovedSelfHandler = (event) => {
+      console.log('[PartyPage] User was removed from party');
+      showToast('❌ You have been removed from the party room');
+      
+      // Redirect to home after 2 seconds
+      setTimeout(() => {
+        if (window.Router) {
+          Router.navigate('home', {});
+        } else {
+          window.location.hash = '#home';
+        }
+      }, 2000);
+    };
 
     document.addEventListener('party:bucketAdd', updateHandler);
     document.addEventListener('party:bucketRemove', updateHandler);
-    document.addEventListener('party:play', updateHandler);
+    document.addEventListener('party:play', playHandler);
     document.addEventListener('party:pause', updateHandler);
-    document.addEventListener('party:next', updateHandler);
+    document.addEventListener('party:next', nextHandler);
     document.addEventListener('party:userJoined', usersUpdateHandler);
     document.addEventListener('party:userLeft', usersUpdateHandler);
     document.addEventListener('party:userRemoved', usersUpdateHandler);
+    document.addEventListener('party:userRemovedSelf', userRemovedSelfHandler);
 
     listeners.bucketAdd = { event: 'party:bucketAdd', handler: updateHandler };
     listeners.bucketRemove = { event: 'party:bucketRemove', handler: updateHandler };
-    listeners.play = { event: 'party:play', handler: updateHandler };
+    listeners.play = { event: 'party:play', handler: playHandler };
     listeners.pause = { event: 'party:pause', handler: updateHandler };
-    listeners.next = { event: 'party:next', handler: updateHandler };
+    listeners.next = { event: 'party:next', handler: nextHandler };
     listeners.userJoined = { event: 'party:userJoined', handler: usersUpdateHandler };
     listeners.userLeft = { event: 'party:userLeft', handler: usersUpdateHandler };
     listeners.userRemoved = { event: 'party:userRemoved', handler: usersUpdateHandler };
+    listeners.userRemovedSelf = { event: 'party:userRemovedSelf', handler: userRemovedSelfHandler };
   }
 
   async function _performSearch(container, query) {
