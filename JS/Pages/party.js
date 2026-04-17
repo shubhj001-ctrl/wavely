@@ -564,7 +564,13 @@ const PartyPage = (() => {
     const playHandler = (event) => {
       _updateUIState(container);
       const song = event.detail?.currentSong;
-      console.log('[PartyPage] playHandler called', { song, hasPlayer: !!window.Player, hasPlayMethod: typeof window.Player?.play });
+      console.log('[PartyPage] playHandler called', { 
+        title: song?.title,
+        hasPlayer: !!window.Player, 
+        hasPlayMethod: typeof window.Player?.play,
+        source: song?.source,
+        hasAudio: !!song?.audio,
+      });
       
       if (!song) {
         console.warn('[PartyPage] No song in event detail');
@@ -572,18 +578,31 @@ const PartyPage = (() => {
       }
       
       if (!window.Player) {
-        console.warn('[PartyPage] Player module not found');
+        console.error('[PartyPage] ❌ Player module not loaded yet. Retrying...');
+        // Retry after a short delay
+        setTimeout(() => {
+          if (window.Player && typeof window.Player.play === 'function') {
+            console.log('[PartyPage] ✓ Player now available, playing:', song.title);
+            Player.play(song, [song], 0);
+          } else {
+            console.error('[PartyPage] Player still not available after retry');
+          }
+        }, 500);
         return;
       }
       
-      if (typeof Player.play !== 'function') {
-        console.warn('[PartyPage] Player.play is not a function');
+      if (typeof window.Player.play !== 'function') {
+        console.error('[PartyPage] Player.play is not a function:', typeof window.Player.play);
         return;
       }
       
       try {
-        console.log('[PartyPage] ▶ Calling Player.play() for:', song.title, 'source:', song.source);
-        Player.play(song, [song], 0);
+        console.log('[PartyPage] ▶ Calling Player.play() for:', song.title, {
+          source: song.source,
+          duration: song.duration,
+          hasAudio: !!song.audio,
+        });
+        window.Player.play(song, [song], 0);
         console.log('[PartyPage] ✓ Player.play() executed successfully');
       } catch (error) {
         console.error('[PartyPage] Error calling Player.play():', error);
@@ -593,21 +612,24 @@ const PartyPage = (() => {
     const nextHandler = (event) => {
       _updateUIState(container);
       const song = event.detail?.currentSong;
-      console.log('[PartyPage] nextHandler called', { song });
+      console.log('[PartyPage] nextHandler called', { 
+        title: song?.title,
+        hasPlayer: !!window.Player 
+      });
       
       if (!song) {
         console.warn('[PartyPage] No song in next event detail');
         return;
       }
       
-      if (!window.Player || typeof Player.play !== 'function') {
+      if (!window.Player || typeof window.Player.play !== 'function') {
         console.warn('[PartyPage] Player not available for next');
         return;
       }
       
       try {
         console.log('[PartyPage] ⏭ Calling Player.play() for next:', song.title);
-        Player.play(song, [song], 0);
+        window.Player.play(song, [song], 0);
       } catch (error) {
         console.error('[PartyPage] Error calling Player.play() for next:', error);
       }

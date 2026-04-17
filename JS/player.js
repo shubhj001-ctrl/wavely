@@ -269,6 +269,10 @@ const Player = (() => {
   };
 })();
 
+// Expose Player to global scope for party room
+window.Player = Player;
+console.log('[Player] ✓ Player module loaded and exposed to window');
+
 let _toastTimer;
 function showToast(msg) {
   const el=document.getElementById('toast');
