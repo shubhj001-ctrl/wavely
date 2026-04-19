@@ -155,6 +155,10 @@ const PartyRoom = (() => {
       PartyState.userId = data.userId;
       PartyState.role = 'dj';
       PartyState.djs = [{ userId: data.userId, partyName: currentPartyName }];
+      
+      // Save session to localStorage for recovery on page refresh
+      _savePartySession(PartyState);
+      
       document.dispatchEvent(new CustomEvent('party:roomCreated', { detail: PartyState }));
     });
 
@@ -203,6 +207,10 @@ const PartyRoom = (() => {
       PartyState.currentSong = data.currentSong;
       PartyState.isPlaying = data.isPlaying;
       PartyState.currentTime = data.currentTime;
+      
+      // Save session to localStorage for recovery on page refresh
+      _savePartySession(PartyState);
+      
       document.dispatchEvent(new CustomEvent('party:joinRequest:approved', { detail: PartyState }));
     });
 
@@ -384,6 +392,45 @@ const PartyRoom = (() => {
       console.error('[PartyRoom] Connection error:', error.message);
       document.dispatchEvent(new CustomEvent('party:connectionError', { detail: error }));
     });
+  }
+
+  // ── Session Persistence ──────────────────────────────────────
+
+  function _savePartySession(state) {
+    const sessionData = {
+      roomId: state.roomId,
+      roomName: state.roomName,
+      roomType: state.roomType,
+      roomPassword: state.roomPassword,
+      roomCreatorId: state.roomCreatorId,
+      userId: state.userId,
+      role: state.role,
+      partyName: currentPartyName,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem('party_session', JSON.stringify(sessionData));
+    console.log('[PartyRoom] Session saved:', state.roomId);
+  }
+
+  function _loadPartySession() {
+    const sessionData = localStorage.getItem('party_session');
+    if (!sessionData) return null;
+    
+    try {
+      const session = JSON.parse(sessionData);
+      // Only recover if session is less than 1 hour old
+      if (Date.now() - session.timestamp < 3600000) {
+        console.log('[PartyRoom] Session recovered:', session.roomId);
+        return session;
+      } else {
+        localStorage.removeItem('party_session');
+        return null;
+      }
+    } catch (err) {
+      console.error('[PartyRoom] Error loading session:', err);
+      localStorage.removeItem('party_session');
+      return null;
+    }
   }
 
   // ── Public API ───────────────────────────────────────────────────
@@ -671,6 +718,30 @@ const PartyRoom = (() => {
       socket.emit('bucket:remove', {
         roomId: PartyState.roomId,
         songId,
+      });
+    },
+
+    // ── Session Management ──────────────────────────────────────
+
+    saveSession: () => {
+      _savePartySession(PartyState);
+    },
+
+    getSession: () => {
+      return _loadPartySession();
+    },
+
+    clearSession: () => {
+      localStorage.removeItem('party_session');
+    },
+
+    recoveryJoin: (session) => {
+      if (!socket || !isConnected) return;
+      console.log('[PartyRoom] Attempting to recover session for room:', session.roomId);
+      socket.emit('room:joinRequest', {
+        roomId: session.roomId,
+        password: session.roomPassword || null,
+        partyName: currentPartyName,
       });
     },
   };

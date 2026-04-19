@@ -117,16 +117,18 @@ const PartyPage = (() => {
   }
 
   function _attemptSessionRecovery(container) {
-    if (!PartyRoom || !PartyRoom.getSessionRoom) {
+    if (!PartyRoom || !PartyRoom.getSession) {
       _showPartyEntry(container);
       return;
     }
 
-    const savedRoomId = PartyRoom.getSessionRoom();
-    if (!savedRoomId) {
+    const savedSession = PartyRoom.getSession();
+    if (!savedSession || !savedSession.roomId) {
       _showPartyEntry(container);
       return;
     }
+
+    console.log('[PartyPage] Found saved session for room:', savedSession.roomId);
 
     // Show loading state while attempting recovery
     container.innerHTML = `
@@ -145,8 +147,21 @@ const PartyPage = (() => {
       
       if (PartyRoom.isConnected()) {
         clearInterval(checkConnection);
-        console.log('[PartyPage] Connection established, rejoining saved room:', savedRoomId);
-        PartyRoom.joinRoom(savedRoomId, null);
+        console.log('[PartyPage] Connection established, rejoining saved room:', savedSession.roomId);
+        
+        // Restore party name
+        if (savedSession.partyName) {
+          PartyRoom.setPartyName(savedSession.partyName);
+        }
+        
+        // Attempt to rejoin the room
+        if (savedSession.roomType === 'private') {
+          // Private room - need password
+          PartyRoom.joinRoom(savedSession.roomId, savedSession.roomPassword);
+        } else {
+          // Public room
+          PartyRoom.joinRoom(savedSession.roomId, null);
+        }
         
         // Wait for room join completion
         let joinAttempts = 0;
@@ -154,12 +169,13 @@ const PartyPage = (() => {
           joinAttempts++;
           const state = PartyRoom.getState();
           
-          if (state.roomId === savedRoomId && state.userId) {
+          if (state.roomId === savedSession.roomId && state.userId) {
             clearInterval(checkJoin);
-            _showPartyInterface(container, savedRoomId);
+            _showPartyInterface(container, savedSession.roomId);
           } else if (joinAttempts > 100) { // 10 second timeout
             clearInterval(checkJoin);
             console.error('[PartyPage] Failed to rejoin room');
+            showToast('❌ Room no longer exists');
             _showPartyEntry(container);
             PartyRoom.clearSession();
           }
@@ -168,7 +184,6 @@ const PartyPage = (() => {
         clearInterval(checkConnection);
         console.error('[PartyPage] Failed to reconnect');
         _showPartyEntry(container);
-        PartyRoom.clearSession();
       }
     }, 100);
   }
@@ -538,10 +553,15 @@ const PartyPage = (() => {
             <h1 class="header-room-name">${escapeHtml(state.roomName)}</h1>
             <p class="header-role-badge">${isDJ ? '👑 DJ' : '🎧 Guest'}</p>
           </div>
-          <button class="header-user-count ${isDJ ? 'clickable' : ''}" data-toggle="users-modal">
-            👥 ${totalUsers}
-          </button>
-          <button class="header-leave-btn">Leave</button>
+          <div class="header-actions">
+            <button class="header-share-btn" data-toggle="share-modal" title="Share room">
+              🔗
+            </button>
+            <button class="header-user-count ${isDJ ? 'clickable' : ''}" data-toggle="users-modal">
+              👥 ${totalUsers}
+            </button>
+            <button class="header-leave-btn">Leave</button>
+          </div>
         </div>
 
         <!-- Center: Flip Card Player -->
@@ -639,6 +659,34 @@ const PartyPage = (() => {
                 ${_generateModalWaitingList(state, isDJ)}
               </div>
             ` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Share Modal -->
+      <div id="share-modal-overlay" class="party-modal-overlay" style="display: none;">
+        <div class="party-modal-content">
+          <div class="party-modal-header">
+            <h2>🔗 Share Room</h2>
+            <button class="modal-close-btn">✕</button>
+          </div>
+          
+          <div class="party-modal-body">
+            <div class="share-option">
+              <div class="share-option-title">Share Code</div>
+              <div class="share-option-content">
+                <code class="share-code">${roomId}</code>
+                <button class="btn-share-copy" data-share-type="code">📋 Copy</button>
+              </div>
+            </div>
+
+            <div class="share-option">
+              <div class="share-option-title">Share URL</div>
+              <div class="share-option-content">
+                <code class="share-url">${shareUrl}</code>
+                <button class="btn-share-copy" data-share-type="url">📋 Copy</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -755,7 +803,9 @@ const PartyPage = (() => {
     // ─── Modal Toggle ───
     const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
     const usersModal = container.querySelector('#users-modal-overlay');
-    const closeBtn = container.querySelector('.modal-close-btn');
+    const shareBtn = container.querySelector('[data-toggle="share-modal"]');
+    const shareModal = container.querySelector('#share-modal-overlay');
+    const closeBtn = container.querySelectorAll('.modal-close-btn');
     
     userCountBtn?.addEventListener('click', () => {
       if (isDJ) {
@@ -763,15 +813,26 @@ const PartyPage = (() => {
       }
     });
 
-    closeBtn?.addEventListener('click', () => {
-      usersModal.style.display = 'none';
+    shareBtn?.addEventListener('click', () => {
+      shareModal.style.display = 'flex';
+    });
+
+    closeBtn.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const modal = e.target.closest('.party-modal-overlay');
+        if (modal) {
+          modal.style.display = 'none';
+        }
+      });
     });
 
     // Close modal when clicking backdrop
-    usersModal?.addEventListener('click', (e) => {
-      if (e.target === usersModal) {
-        usersModal.style.display = 'none';
-      }
+    [usersModal, shareModal].forEach(modal => {
+      modal?.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.style.display = 'none';
+        }
+      });
     });
 
     // ─── Modal Tabs ───
@@ -837,11 +898,45 @@ const PartyPage = (() => {
       });
     });
 
+    // ─── Share Options ───
+    container.querySelectorAll('.btn-share-copy').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const shareType = e.target.dataset.shareType;
+        let textToCopy = '';
+        let copyLabel = '';
+
+        if (shareType === 'code') {
+          textToCopy = roomId;
+          copyLabel = 'Room Code';
+        } else if (shareType === 'url') {
+          const baseUrl = window.location.origin + window.location.pathname;
+          textToCopy = `${baseUrl}#party/${roomId}`;
+          copyLabel = 'Room URL';
+        }
+
+        if (textToCopy) {
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            showToast(`✅ ${copyLabel} copied!`);
+            e.target.textContent = '✅ Copied!';
+            setTimeout(() => {
+              e.target.textContent = '📋 Copy';
+            }, 2000);
+          }).catch(() => {
+            showToast('❌ Failed to copy');
+          });
+        }
+      });
+    });
+
     // ─── Leave Room ───
     container.querySelector('.header-leave-btn')?.addEventListener('click', () => {
       if (confirm('Leave room?')) {
         PartyRoom.leaveRoom();
-        Router.navigate('home');
+        // Clear session and refresh
+        localStorage.removeItem('party_session');
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       }
     });
 
@@ -974,14 +1069,22 @@ const PartyPage = (() => {
 
     const userRemovedSelfHandler = (event) => {
       console.log('[PartyPage] User was removed from party');
+      
+      // Stop the player
+      if (window.Player && typeof window.Player.pause === 'function') {
+        try {
+          window.Player.pause();
+        } catch (error) {
+          console.error('[PartyPage] Error stopping player:', error);
+        }
+      }
+      
       showToast('❌ You have been removed from the party room');
       
+      // Clear session and refresh page
+      localStorage.removeItem('party_session');
       setTimeout(() => {
-        if (window.Router) {
-          Router.navigate('home', {});
-        } else {
-          window.location.hash = '#home';
-        }
+        window.location.reload();
       }, 2000);
     };
 

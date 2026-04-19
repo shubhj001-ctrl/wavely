@@ -1019,6 +1019,69 @@
   background: #c0392b;
 }
 
+/* ─── Share Modal Styles ─── */
+.share-option {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-secondary, #1a1a1a);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #333);
+}
+
+.share-option-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-color, #1db954);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.share-option-content {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.share-code,
+.share-url {
+  flex: 1;
+  background: var(--bg-primary, #0a0a0a);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 4px;
+  padding: 0.75rem;
+  color: var(--text-primary, #fff);
+  font-size: 0.85rem;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  max-height: 80px;
+}
+
+.btn-share-copy {
+  background: var(--accent-color, #1db954);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.btn-share-copy:hover {
+  background: var(--accent-hover, #1ed760);
+  transform: scale(1.05);
+}
+
+.btn-share-copy:active {
+  transform: scale(0.98);
+}
+
 /* ─── Search Section (Mobile Redesign) ─── */
 .party-search-section {
   background: var(--bg-secondary, #1a1a1a);
@@ -1186,6 +1249,35 @@
   margin: 0;
   font-size: 0.75rem;
   color: var(--text-secondary, #aaa);
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.header-share-btn {
+  background: none;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--text-primary, #fff);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.header-share-btn:hover {
+  background: var(--bg-primary, #0a0a0a);
+  border-color: var(--accent-color, #1db954);
+  color: var(--accent-color, #1db954);
 }
 
 .header-user-count {
