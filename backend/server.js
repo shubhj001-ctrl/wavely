@@ -303,6 +303,7 @@ io.on('connection', (socket) => {
         roomId: room.id,
         roomName: room.name,
         roomType: room.type,
+        creatorId: room.creatorId,
         userId: requestUserId,
         role: 'guest',
         djs: room.djs,
@@ -437,7 +438,41 @@ io.on('connection', (socket) => {
     }
   });
 
-  // DJ Controls - Play
+  // USER PROMOTION (DJ only - make a guest into a DJ)
+  socket.on('user:promote', (data) => {
+    const { roomId, userIdToPromote } = data;
+    const room = getRoom(roomId);
+    const promoterUser = socketToUser.get(socket.id);
+
+    if (!room) return;
+    if (!promoterUser) return;
+
+    // Check if current user is DJ
+    const promoterIsDJ = room.djs.find(d => d.userId === promoterUser.userId);
+    if (!promoterIsDJ) {
+      socket.emit('error', { type: 'NOT_AUTHORIZED', message: 'Only DJ can promote users' });
+      return;
+    }
+
+    // Find and promote user from guests to DJs
+    const userToPromote = room.users.find(u => u.userId === userIdToPromote);
+    if (userToPromote) {
+      // Remove from users list and add to DJs list
+      room.users = room.users.filter(u => u.userId !== userIdToPromote);
+      room.djs.push({
+        userId: userIdToPromote,
+        partyName: userToPromote.partyName,
+      });
+
+      // Notify room that user was promoted
+      io.to(roomId).emit('user:promoted', {
+        userId: userIdToPromote,
+        partyName: userToPromote.partyName,
+      });
+
+      console.log(`[User] ${userToPromote.partyName} promoted to DJ in ${roomId}`);
+    }
+  });
   socket.on('playback:play', (data) => {
     const { roomId, currentSong, currentTime } = data;
     const room = getRoom(roomId);

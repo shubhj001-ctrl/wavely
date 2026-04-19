@@ -804,6 +804,607 @@
   50% { opacity: 1; }
 }
 
+/* ─── Flip Card Styles ─── */
+.flip-card-container {
+  perspective: 1000px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.flip-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  cursor: pointer;
+}
+
+.flip-card.flipped {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 12px;
+  background: var(--bg-secondary, #1a1a1a);
+  border: 1px solid var(--border-color, #333);
+}
+
+.flip-card-front {
+  transform: rotateY(0deg);
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+/* ─── Modal Styles ─── */
+.party-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.party-modal-content {
+  background: var(--bg-primary, #0a0a0a);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.party-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.party-modal-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-secondary, #aaa);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-primary, #fff);
+}
+
+.party-modal-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.modal-tab {
+  flex: 1;
+  padding: 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #aaa);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.modal-tab.active {
+  color: var(--accent-color, #1db954);
+  border-bottom-color: var(--accent-color, #1db954);
+  background: rgba(29, 185, 84, 0.05);
+}
+
+.party-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.modal-user-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-secondary, #1a1a1a);
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  min-height: 50px;
+}
+
+.modal-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-user-name {
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modal-user-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn-modal-action {
+  padding: 0.5rem 1rem;
+  background: var(--accent-color, #1db954);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.btn-modal-action:hover {
+  background: var(--accent-hover, #1ed760);
+}
+
+.btn-modal-danger {
+  background: var(--danger-color, #e74c3c);
+  color: white;
+}
+
+.btn-modal-danger:hover {
+  background: #c0392b;
+}
+
+/* ─── Search Section (Mobile Redesign) ─── */
+.party-search-section {
+  background: var(--bg-secondary, #1a1a1a);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.search-input-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.search-input-group input {
+  flex: 1;
+  padding: 0.9rem;
+  background: var(--bg-primary, #0a0a0a);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  color: var(--text-primary, #fff);
+  font-size: 1rem;
+  min-height: 44px;
+}
+
+.search-input-group input::placeholder {
+  color: var(--text-tertiary, #666);
+}
+
+.search-results-mobile {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.search-result-item-mobile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-primary, #0a0a0a);
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  min-height: 60px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-result-item-mobile:hover {
+  background: rgba(29, 185, 84, 0.1);
+}
+
+.search-result-thumb-mobile {
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.search-result-info-mobile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.search-result-title-mobile {
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.search-result-artist-mobile {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #aaa);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.search-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn-search-action {
+  padding: 0.6rem 1rem;
+  background: var(--accent-color, #1db954);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.btn-search-action:hover {
+  background: var(--accent-hover, #1ed760);
+}
+
+.btn-search-action.secondary {
+  background: var(--bg-secondary, #1a1a1a);
+  border: 1px solid var(--border-color, #333);
+  color: var(--text-primary, #fff);
+}
+
+.btn-search-action.secondary:hover {
+  background: var(--bg-hover, #222);
+}
+
+.no-results-msg {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-secondary, #aaa);
+}
+
+/* ─── Mobile Container (Flip Card Design) ─── */
+.party-room-container-mobile {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary, #0a0a0a);
+  color: var(--text-primary, #fff);
+  padding: 0;
+}
+
+.party-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-secondary, #1a1a1a);
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.header-room-name {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-role-badge {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #aaa);
+}
+
+.header-user-count {
+  background: var(--accent-color, #1db954);
+  color: #000;
+  border: none;
+  border-radius: 20px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.header-user-count.clickable {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.header-user-count.clickable:hover {
+  background: var(--accent-hover, #1ed760);
+}
+
+.header-leave-btn {
+  padding: 0.5rem 1rem;
+  background: var(--danger-color, #e74c3c);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-height: 40px;
+}
+
+.header-leave-btn:hover {
+  background: #c0392b;
+}
+
+/* ─── Flip Card Wrapper ─── */
+.flip-card-wrapper {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem 1rem;
+  max-height: 50vh;
+}
+
+.now-playing-flip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.np-cover-flip {
+  width: 150px;
+  height: 150px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+}
+
+.np-cover-flip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.np-info-flip {
+  text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.np-info-flip h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.np-info-flip p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #aaa);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.np-empty-flip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--text-secondary, #aaa);
+  text-align: center;
+}
+
+.np-empty-flip p {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.np-empty-flip small {
+  font-size: 0.8rem;
+}
+
+.dj-controls-flip {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.btn-control-flip {
+  padding: 0.75rem 1.5rem;
+  background: var(--accent-color, #1db954);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  transition: all 0.2s;
+}
+
+.btn-control-flip:hover {
+  background: var(--accent-hover, #1ed760);
+}
+
+.btn-control-flip:active {
+  opacity: 0.8;
+  transform: scale(0.98);
+}
+
+.guest-info-flip {
+  text-align: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-primary, #0a0a0a);
+  border-radius: 6px;
+  color: var(--text-secondary, #aaa);
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.guest-info-flip p {
+  margin: 0;
+}
+
+.progress-bar-flip {
+  width: 100%;
+  height: 4px;
+  background: var(--border-color, #333);
+  border-radius: 2px;
+  margin: 1rem 0 0.5rem;
+  overflow: hidden;
+}
+
+.progress-fill-flip {
+  height: 100%;
+  background: var(--accent-color, #1db954);
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+.progress-time-flip {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #aaa);
+  margin: 0 0 0.5rem;
+}
+
+.flip-hint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #666);
+  text-align: center;
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+.queue-item-flip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-primary, #0a0a0a);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  min-height: 50px;
+}
+
+.queue-list-flip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.modal-tab-content {
+  display: none;
+}
+
+.modal-tab-content.active {
+  display: block;
+}
+
 /* ─── Mobile Responsive ─── */
 @media (max-width: 1200px) {
   .party-content {

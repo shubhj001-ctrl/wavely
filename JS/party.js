@@ -24,6 +24,7 @@ const PartyRoom = (() => {
     roomPassword: null, // 4-digit passcode for private rooms
     maxUsers: 10,
     creatorId: null,
+    roomCreatorId: null,
 
     // User info
     userId: null,
@@ -150,6 +151,7 @@ const PartyRoom = (() => {
       PartyState.roomType = data.roomType;
       PartyState.roomPassword = data.roomPassword;
       PartyState.creatorId = data.creatorId;
+      PartyState.roomCreatorId = data.creatorId;
       PartyState.userId = data.userId;
       PartyState.role = 'dj';
       PartyState.djs = [{ userId: data.userId, partyName: currentPartyName }];
@@ -191,6 +193,8 @@ const PartyRoom = (() => {
       PartyState.roomId = data.roomId;
       PartyState.roomName = data.roomName;
       PartyState.roomType = data.roomType;
+      PartyState.creatorId = data.creatorId;
+      PartyState.roomCreatorId = data.creatorId;
       PartyState.userId = data.userId;
       PartyState.role = data.role || 'guest';
       PartyState.djs = data.djs || [];
@@ -253,6 +257,21 @@ const PartyRoom = (() => {
         PartyState.djs = PartyState.djs.filter(d => d.userId !== data.userId);
       }
       document.dispatchEvent(new CustomEvent('party:userRemoved', { detail: data }));
+    });
+
+    // User promoted to DJ
+    socket.on('user:promoted', (data) => {
+      console.log('[PartyRoom] User promoted to DJ:', data.partyName);
+      const user = PartyState.users.find(u => u.userId === data.userId);
+      if (user) {
+        // Move from users to djs
+        PartyState.users = PartyState.users.filter(u => u.userId !== data.userId);
+        PartyState.djs.push({
+          userId: data.userId,
+          partyName: data.partyName,
+        });
+        document.dispatchEvent(new CustomEvent('party:userPromoted', { detail: data }));
+      }
     });
 
     // ── Playback Events ══════════════════════════════════════════
@@ -496,6 +515,18 @@ const PartyRoom = (() => {
       socket.emit('user:remove', {
         roomId: PartyState.roomId,
         userIdToRemove,
+      });
+    },
+
+    promoteUser: (userIdToPromote) => {
+      if (!socket || !isConnected) return;
+      if (PartyState.role !== 'dj') {
+        console.warn('[PartyRoom] Only DJ can promote users');
+        return;
+      }
+      socket.emit('user:promote', {
+        roomId: PartyState.roomId,
+        userIdToPromote,
       });
     },
 
