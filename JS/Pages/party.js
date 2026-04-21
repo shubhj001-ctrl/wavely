@@ -707,7 +707,6 @@ const PartyPage = (() => {
     if (state.djs && state.djs.length > 0) {
       state.djs.forEach(user => {
         const isCurrentUser = user.userId === state.userId;
-        const isCreator = state.roomCreatorId === state.userId;
         
         html += `
           <div class="modal-user-item">
@@ -775,6 +774,62 @@ const PartyPage = (() => {
     `).join('');
   }
 
+  // ─── FIX: Dedicated helper to attach listeners to waiting tab after any re-render ───
+  function _attachWaitingTabListeners(waitingTab, roomId) {
+    const state = PartyRoom.getState();
+    const isCreator = state.roomCreatorId === state.userId;
+    if (!isCreator) return;
+
+    waitingTab.querySelectorAll('.btn-approve-user-modal').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const userId = e.currentTarget.dataset.userId;
+        console.log('[PartyPage] Approving join request for userId:', userId);
+        PartyRoom.approveJoinRequest(roomId, userId);
+        showToast('✅ Request approved');
+      });
+    });
+
+    waitingTab.querySelectorAll('.btn-reject-user-modal').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const userId = e.currentTarget.dataset.userId;
+        console.log('[PartyPage] Rejecting join request for userId:', userId);
+        PartyRoom.rejectJoinRequest(roomId, userId);
+        showToast('❌ Request rejected');
+      });
+    });
+  }
+
+  // ─── FIX: Dedicated helper to attach listeners to in-room tab after any re-render ───
+  function _attachInRoomTabListeners(inRoomTab) {
+    const state = PartyRoom.getState();
+
+    inRoomTab.querySelectorAll('.btn-remove-user-modal').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const userId = e.currentTarget.dataset.userId;
+        const user = state.users.find(u => u.userId === userId) || state.djs.find(u => u.userId === userId);
+        if (user && confirm(`Remove ${user.partyName} from room?`)) {
+          PartyRoom.removeUser(userId);
+          showToast(`Removed ${user.partyName}`);
+        }
+      });
+    });
+
+    inRoomTab.querySelectorAll('.btn-promote-user-modal').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const userId = e.currentTarget.dataset.userId;
+        const user = state.users.find(u => u.userId === userId);
+        if (user && confirm(`Make ${user.partyName} a DJ?`)) {
+          PartyRoom.promoteUser(userId);
+          showToast(`${user.partyName} is now a DJ`);
+        }
+      });
+    });
+  }
+
   function _attachPartyEventListeners(container, roomId) {
     const state = PartyRoom.getState();
     const isDJ = state.role === 'dj';
@@ -782,7 +837,6 @@ const PartyPage = (() => {
 
     // ─── Flip Card Toggle ───
     const flipCard = container.querySelector('.flip-card');
-    const flipCardContainer = container.querySelector('.flip-card-container');
     if (flipCard) {
       flipCard.addEventListener('click', (e) => {
         // Don't flip if clicking on buttons
@@ -804,24 +858,20 @@ const PartyPage = (() => {
       });
     });
 
-    // ─── Modal Toggle ───
+    // ─── Modal references ───
     const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
     const usersModal = container.querySelector('#users-modal-overlay');
     const shareBtn = container.querySelector('[data-toggle="share-modal"]');
     const shareModal = container.querySelector('#share-modal-overlay');
-    const closeBtn = container.querySelectorAll('.modal-close-btn');
-    
-    userCountBtn?.addEventListener('click', () => {
-      if (isDJ) {
-        usersModal.style.display = 'flex';
-      }
-    });
+    const closeBtns = container.querySelectorAll('.modal-close-btn');
 
+    // ─── Share Modal Toggle ───
     shareBtn?.addEventListener('click', () => {
       shareModal.style.display = 'flex';
     });
 
-    closeBtn.forEach(btn => {
+    // ─── Close Modal Buttons ───
+    closeBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         const modal = e.target.closest('.party-modal-overlay');
         if (modal) {
@@ -839,6 +889,28 @@ const PartyPage = (() => {
       });
     });
 
+    // ─── Users Modal Toggle (DJ only) ───
+    // Single handler — opens modal, re-renders waiting tab, attaches listeners
+    if (userCountBtn && isDJ) {
+      userCountBtn.addEventListener('click', () => {
+        userCountBtn.classList.remove('has-pending-requests');
+        usersModal.style.display = 'flex';
+
+        // Re-render & re-attach both tabs when modal opens
+        const inRoomTab = usersModal.querySelector('#modal-in-room');
+        const waitingTab = usersModal.querySelector('#modal-waiting');
+
+        if (inRoomTab) {
+          inRoomTab.innerHTML = _generateModalUsersList(PartyRoom.getState(), isDJ);
+          _attachInRoomTabListeners(inRoomTab);
+        }
+        if (waitingTab) {
+          waitingTab.innerHTML = _generateModalWaitingList(PartyRoom.getState(), isDJ);
+          _attachWaitingTabListeners(waitingTab, roomId);
+        }
+      });
+    }
+
     // ─── Modal Tabs ───
     container.querySelectorAll('.modal-tab').forEach(tab => {
       tab.addEventListener('click', (e) => {
@@ -855,49 +927,22 @@ const PartyPage = (() => {
             content.classList.add('active');
           }
         });
-      });
-    });
 
-    // ─── Modal User Actions (In Room) ───
-    container.querySelectorAll('.btn-remove-user-modal').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const userId = e.target.dataset.userId;
-        const user = state.users.find(u => u.userId === userId) || state.djs.find(u => u.userId === userId);
-        if (user && confirm(`Remove ${user.partyName} from room?`)) {
-          PartyRoom.removeUser(userId);
-          showToast(`Removed ${user.partyName}`);
+        // Re-attach listeners when switching to waiting tab
+        if (tabName === 'waiting' && isDJ) {
+          const waitingTab = container.querySelector('#modal-waiting');
+          if (waitingTab) {
+            waitingTab.innerHTML = _generateModalWaitingList(PartyRoom.getState(), isDJ);
+            _attachWaitingTabListeners(waitingTab, roomId);
+          }
         }
-      });
-    });
-
-    container.querySelectorAll('.btn-promote-user-modal').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const userId = e.target.dataset.userId;
-        const user = state.users.find(u => u.userId === userId);
-        if (user && confirm(`Make ${user.partyName} a DJ?`)) {
-          PartyRoom.promoteUser(userId);
-          showToast(`${user.partyName} is now a DJ`);
-        }
-      });
-    });
-
-    // ─── Modal User Actions (Waiting) ───
-    container.querySelectorAll('.btn-approve-user-modal').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const userId = e.target.dataset.userId;
-        if (isCreator) {
-          PartyRoom.approveJoinRequest(roomId, userId);
-          showToast('✅ Request approved');
-        }
-      });
-    });
-
-    container.querySelectorAll('.btn-reject-user-modal').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const userId = e.target.dataset.userId;
-        if (isCreator) {
-          PartyRoom.rejectJoinRequest(roomId, userId);
-          showToast('❌ Request rejected');
+        // Re-attach listeners when switching to in-room tab
+        if (tabName === 'in-room') {
+          const inRoomTab = container.querySelector('#modal-in-room');
+          if (inRoomTab) {
+            inRoomTab.innerHTML = _generateModalUsersList(PartyRoom.getState(), isDJ);
+            _attachInRoomTabListeners(inRoomTab);
+          }
         }
       });
     });
@@ -976,10 +1021,9 @@ const PartyPage = (() => {
       searchTimer = setTimeout(() => _performSearchMobile(container, query, isDJ), 300);
     });
 
-    // Event listeners for real-time updates
+    // ─── Real-time event handlers ───
     const updateHandler = () => _updateUIState(container);
     
-    // Handler to actually play songs in Player module
     const playHandler = (event) => {
       _updateUIState(container);
       const song = event.detail?.currentSong;
@@ -1074,7 +1118,6 @@ const PartyPage = (() => {
     const userRemovedSelfHandler = (event) => {
       console.log('[PartyPage] User was removed from party');
       
-      // Stop the player
       if (window.Player && typeof window.Player.pause === 'function') {
         try {
           window.Player.pause();
@@ -1085,7 +1128,6 @@ const PartyPage = (() => {
       
       showToast('❌ You have been removed from the party room');
       
-      // Clear session and refresh page
       localStorage.removeItem('party_session');
       setTimeout(() => {
         window.location.reload();
@@ -1099,7 +1141,7 @@ const PartyPage = (() => {
 
     // Handle new join requests (DJ notifications)
     const joinRequestNewHandler = (event) => {
-      if (!isDJ) return; // Only DJ should see this
+      if (!isDJ) return;
       const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
       if (userCountBtn && PartyRoom.getState().pendingJoins.length > 0) {
         userCountBtn.classList.add('has-pending-requests');
@@ -1108,7 +1150,7 @@ const PartyPage = (() => {
 
     // Handle join request list updates
     const joinRequestListHandler = (event) => {
-      if (!isDJ) return; // Only DJ should see this
+      if (!isDJ) return;
       const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
       const state = PartyRoom.getState();
       
@@ -1117,29 +1159,16 @@ const PartyPage = (() => {
       if (usersModal && usersModal.style.display === 'flex') {
         const waitingTab = usersModal.querySelector('#modal-waiting');
         if (waitingTab) {
+          // Re-render and re-attach listeners after HTML replacement
           waitingTab.innerHTML = _generateModalWaitingList(state, isDJ);
-          _attachModalListeners(container, roomId);
+          _attachWaitingTabListeners(waitingTab, roomId);
         }
       }
       
-      // Update blink state: only blink if there are NEW pending requests
       if (state.pendingJoins.length > 0) {
         userCountBtn?.classList.add('has-pending-requests');
       }
     };
-
-    // Handle when DJ opens the modal - stop blinking once DJ views the requests
-// NOTE: userCountBtn and usersModal already declared above — no const redeclaration
-if (userCountBtn && isDJ) {
-  userCountBtn.addEventListener('click', () => {
-    userCountBtn.classList.remove('has-pending-requests');
-    usersModal.style.display = 'flex';
-    const waitingTab = usersModal.querySelector('#modal-waiting');
-    if (waitingTab) {
-      waitingTab.innerHTML = _generateModalWaitingList(PartyRoom.getState(), isDJ);
-    }
-  });
-}
 
     document.addEventListener('party:bucketAdd', updateHandler);
     document.addEventListener('party:bucketRemove', updateHandler);
@@ -1225,13 +1254,11 @@ if (userCountBtn && isDJ) {
           console.log('[PartyPage] Playing now:', track.title);
           PartyRoom.addToBucket(track);
           
-          // Play it immediately
           setTimeout(() => {
             PartyRoom.playFromQueue(track.songId);
             showToast(`▶ Now playing: ${escapeHtml(track.title)}`);
           }, 100);
           
-          // Reset search
           container.querySelector('#party-search-input').value = '';
           resultsDiv.style.display = 'none';
           resultsDiv.innerHTML = '';
@@ -1255,7 +1282,6 @@ if (userCountBtn && isDJ) {
           PartyRoom.addToBucket(track);
           showToast(`✅ Added "${escapeHtml(track.title)}" to queue`);
           
-          // Reset search
           container.querySelector('#party-search-input').value = '';
           resultsDiv.style.display = 'none';
           resultsDiv.innerHTML = '';
@@ -1390,50 +1416,14 @@ if (userCountBtn && isDJ) {
       
       if (inRoomTab) {
         inRoomTab.innerHTML = _generateModalUsersList(state, isDJ);
-        
-        // Re-attach modal buttons
-        inRoomTab.querySelectorAll('.btn-remove-user-modal').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            const userId = e.target.dataset.userId;
-            const user = state.users.find(u => u.userId === userId) || state.djs.find(u => u.userId === userId);
-            if (user && confirm(`Remove ${user.partyName} from room?`)) {
-              PartyRoom.removeUser(userId);
-              showToast(`Removed ${user.partyName}`);
-            }
-          });
-        });
-
-        inRoomTab.querySelectorAll('.btn-promote-user-modal').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            const userId = e.target.dataset.userId;
-            const user = state.users.find(u => u.userId === userId);
-            if (user && confirm(`Make ${user.partyName} a DJ?`)) {
-              PartyRoom.promoteUser(userId);
-              showToast(`${user.partyName} is now a DJ`);
-            }
-          });
-        });
+        _attachInRoomTabListeners(inRoomTab);
       }
 
       if (waitingTab && isDJ) {
+        // Determine roomId from PartyRoom state since we may not have it in closure here
+        const currentRoomId = state.roomId;
         waitingTab.innerHTML = _generateModalWaitingList(state, isDJ);
-        
-        // Re-attach modal buttons for waiting list
-        waitingTab.querySelectorAll('.btn-approve-user-modal').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            const userId = e.target.dataset.userId;
-            PartyRoom.approveJoinRequest(state.roomId, userId);
-            showToast('✅ Request approved');
-          });
-        });
-
-        waitingTab.querySelectorAll('.btn-reject-user-modal').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            const userId = e.target.dataset.userId;
-            PartyRoom.rejectJoinRequest(state.roomId, userId);
-            showToast('❌ Request rejected');
-          });
-        });
+        _attachWaitingTabListeners(waitingTab, currentRoomId);
       }
     }
   }
