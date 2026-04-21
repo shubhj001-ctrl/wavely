@@ -20,10 +20,14 @@ const ArtistPage = (() => {
   }
 
   async function render(container, params = {}) {
-    // Restore mini player visibility when leaving party room
+    // Restore mini player and sidebar visibility when leaving party room
     const playerBar = document.getElementById('player-bar');
+    const sidebar = document.querySelector('.sidebar');
     if (playerBar) {
       playerBar.style.display = '';
+    }
+    if (sidebar) {
+      sidebar.style.display = '';
     }
 
     const { artistId, artistName = 'Artist' } = params;

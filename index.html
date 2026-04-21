@@ -180,6 +180,81 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- Expanded Player (Full-screen) -->
+  <div class="expanded-player" id="expanded-player">
+    <div class="ep-ambient">
+      <div class="ep-ambient-img" id="ep-ambient-img"></div>
+      <div class="ep-ambient-overlay"></div>
+    </div>
+
+    <div class="ep-content">
+      <div class="ep-header">
+        <div class="ep-header-label">Now Playing</div>
+        <button class="ep-close" id="ep-close" aria-label="Close player">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="ep-art-wrap">
+        <div class="ep-art" id="ep-art">🎵</div>
+      </div>
+
+      <div class="ep-track-row">
+        <div class="ep-track-text">
+          <div class="ep-title" id="ep-title">—</div>
+          <div class="ep-artist" id="ep-artist">Select a track</div>
+        </div>
+        <button class="ep-like" id="ep-like" aria-label="Like">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="ep-progress-wrap">
+        <div class="ep-prog-bar" id="ep-prog-bar">
+          <div class="ep-prog-fill" id="ep-prog-fill"></div>
+          <div class="ep-prog-thumb" id="ep-prog-thumb"></div>
+        </div>
+        <div class="ep-times">
+          <span class="ep-time" id="ep-time-cur">0:00</span>
+          <span class="ep-time" id="ep-time-total">0:00</span>
+        </div>
+      </div>
+
+      <div class="ep-controls">
+        <button class="ep-ctrl shuffle" id="ep-shuffle" aria-label="Shuffle">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+            <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+          </svg>
+        </button>
+        <button class="ep-ctrl prev" id="ep-prev" aria-label="Previous">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button class="ep-play" id="ep-play" aria-label="Play/Pause">
+          <svg id="ep-play-icon" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="ep-ctrl next" id="ep-next" aria-label="Next">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+        <button class="ep-ctrl repeat" id="ep-repeat" aria-label="Repeat">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <polyline points="17 1 21 5 17 9"/>
+            <path d="M3 11V9a4 4 0 014-4h14"/>
+            <polyline points="7 23 3 19 7 15"/>
+            <path d="M21 13v2a4 4 0 01-4 4H3"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="ep-spacer"></div>
+    </div>
+  </div>
+
   <!-- Hidden YouTube IFrame player (0x0, audio only) -->
   <div style="position:fixed;bottom:-9999px;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
     <div id="yt-player"></div>

@@ -26,6 +26,14 @@ const Router = (() => {
   }
 
   async function navigate(page, params = {}) {
+    // Check if user is in party room
+    const partyState = PartyRoom?.getState?.();
+    if (partyState && partyState.roomId && page !== 'party') {
+      // User is in party room, prevent navigation
+      showToast('⛔ You must leave the party room first');
+      return;
+    }
+
     const renderer = PAGES[page];
     if (!renderer) { console.warn('Unknown page:', page); return; }
 

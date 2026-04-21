@@ -267,6 +267,13 @@ const Player = (() => {
       _setProgress(pct*100);
     },
 
+    scrubTo(time) {
+      if (_useYT) { if (ytPlayer?.getDuration) ytPlayer.seekTo(time, true); }
+      else { if (audio.duration) audio.currentTime = time; }
+      State.currentTime = time;
+      _setProgress((time / (currentTrack()?.duration || 1)) * 100);
+    },
+
     setVolume(e) {
       const bar=document.getElementById('vol-bar');
       const vol=Math.max(0,Math.min(1,(e.clientX-bar.getBoundingClientRect().left)/bar.offsetWidth));

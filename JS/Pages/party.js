@@ -21,10 +21,14 @@ const PartyPage = (() => {
     });
     listeners = {};
 
-    // Hide mini player when in party room
+    // Hide mini player and sidebar when in party room
     const playerBar = document.getElementById('player-bar');
+    const sidebar = document.querySelector('.sidebar');
     if (playerBar) {
       playerBar.style.display = 'none';
+    }
+    if (sidebar) {
+      sidebar.style.display = 'none';
     }
 
     if (params.roomId) {

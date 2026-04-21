@@ -612,3 +612,51 @@
 .ep-queue-info { min-width: 0; flex: 1; }
 .ep-queue-title  { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-queue-artist { font-size: 11px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
+/* ── Spacer to push content up ── */
+.ep-spacer {
+  flex: 1;
+}
+
+/* ── When expanded player is open ── */
+body.expanded-player-open {
+  overflow: hidden;
+}
+body.expanded-player-open .player {
+  display: none;
+}
+body.expanded-player-open .sidebar {
+  display: none;
+}
+
+/* ── Progress thumb styling ── */
+.ep-prog-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--text);
+  border-radius: 50%;
+  position: absolute;
+  top: -4px;
+  left: 0;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.ep-prog-bar:hover .ep-prog-thumb {
+  opacity: 1;
+}
+
+/* ── Mobile friendly progress ── */
+@media (max-width: 768px) {
+  .ep-prog-bar {
+    height: 4px;
+    cursor: pointer;
+  }
+  
+  .ep-prog-thumb {
+    width: 14px;
+    height: 14px;
+    top: -5px;
+  }
+}

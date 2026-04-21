@@ -15,7 +15,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Sidebar nav ────────────────────────────────────────────────
   document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
-    btn.addEventListener('click', () => Router.navigate(btn.dataset.page));
+    btn.addEventListener('click', (e) => {
+      const page = btn.dataset.page;
+      const partyState = PartyRoom?.getState?.();
+      
+      // Check if in party room and trying to navigate away
+      if (partyState && partyState.roomId && page !== 'party') {
+        e.preventDefault();
+        showToast('⛔ Leave party room first');
+        return;
+      }
+      
+      Router.navigate(page);
+    });
   });
 
   // ── Hamburger menu ─────────────────────────────────────────────
@@ -29,8 +41,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Close menu when clicking a nav item
   document.querySelectorAll('.mobile-nav-item[data-page]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      Router.navigate(btn.dataset.page);
+    btn.addEventListener('click', (e) => {
+      const page = btn.dataset.page;
+      const partyState = PartyRoom?.getState?.();
+      
+      // Check if in party room and trying to navigate away
+      if (partyState && partyState.roomId && page !== 'party') {
+        e.preventDefault();
+        showToast('⛔ Leave party room first');
+        return;
+      }
+      
+      Router.navigate(page);
       mobileNav.classList.remove('open');
       document.body.classList.remove('menu-open');
     });
