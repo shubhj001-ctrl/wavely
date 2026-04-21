@@ -1129,24 +1129,17 @@ const PartyPage = (() => {
     };
 
     // Handle when DJ opens the modal - stop blinking once DJ views the requests
-    const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
-    const usersModal = container.querySelector('#users-modal-overlay');
-    const modalCloseBtn = usersModal?.querySelector('.modal-close-btn');
-
-    if (userCountBtn && isDJ) {
-      userCountBtn.addEventListener('click', () => {
-        // Remove blink when DJ opens the modal
-        userCountBtn.classList.remove('has-pending-requests');
-        usersModal.style.display = 'flex';
-        
-        // Populate waiting tab with current requests
-        const waitingTab = usersModal.querySelector('#modal-waiting');
-        if (waitingTab) {
-          waitingTab.innerHTML = _generateModalWaitingList(PartyRoom.getState(), isDJ);
-          _attachModalListeners(container, roomId);
-        }
-      });
+// NOTE: userCountBtn and usersModal already declared above — no const redeclaration
+if (userCountBtn && isDJ) {
+  userCountBtn.addEventListener('click', () => {
+    userCountBtn.classList.remove('has-pending-requests');
+    usersModal.style.display = 'flex';
+    const waitingTab = usersModal.querySelector('#modal-waiting');
+    if (waitingTab) {
+      waitingTab.innerHTML = _generateModalWaitingList(PartyRoom.getState(), isDJ);
     }
+  });
+}
 
     document.addEventListener('party:bucketAdd', updateHandler);
     document.addEventListener('party:bucketRemove', updateHandler);
