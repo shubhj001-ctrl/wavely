@@ -1097,6 +1097,57 @@ const PartyPage = (() => {
       showToast('❌ Failed to add song');
     };
 
+    // Handle new join requests (DJ notifications)
+    const joinRequestNewHandler = (event) => {
+      if (!isDJ) return; // Only DJ should see this
+      const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
+      if (userCountBtn && PartyRoom.getState().pendingJoins.length > 0) {
+        userCountBtn.classList.add('has-pending-requests');
+      }
+    };
+
+    // Handle join request list updates
+    const joinRequestListHandler = (event) => {
+      if (!isDJ) return; // Only DJ should see this
+      const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
+      const state = PartyRoom.getState();
+      
+      // Update the waiting tab if modal is open
+      const usersModal = container.querySelector('#users-modal-overlay');
+      if (usersModal && usersModal.style.display === 'flex') {
+        const waitingTab = usersModal.querySelector('#modal-waiting');
+        if (waitingTab) {
+          waitingTab.innerHTML = _generateModalWaitingList(state, isDJ);
+          _attachModalListeners(container, roomId);
+        }
+      }
+      
+      // Update blink state: only blink if there are NEW pending requests
+      if (state.pendingJoins.length > 0) {
+        userCountBtn?.classList.add('has-pending-requests');
+      }
+    };
+
+    // Handle when DJ opens the modal - stop blinking once DJ views the requests
+    const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
+    const usersModal = container.querySelector('#users-modal-overlay');
+    const modalCloseBtn = usersModal?.querySelector('.modal-close-btn');
+
+    if (userCountBtn && isDJ) {
+      userCountBtn.addEventListener('click', () => {
+        // Remove blink when DJ opens the modal
+        userCountBtn.classList.remove('has-pending-requests');
+        usersModal.style.display = 'flex';
+        
+        // Populate waiting tab with current requests
+        const waitingTab = usersModal.querySelector('#modal-waiting');
+        if (waitingTab) {
+          waitingTab.innerHTML = _generateModalWaitingList(PartyRoom.getState(), isDJ);
+          _attachModalListeners(container, roomId);
+        }
+      });
+    }
+
     document.addEventListener('party:bucketAdd', updateHandler);
     document.addEventListener('party:bucketRemove', updateHandler);
     document.addEventListener('party:play', playHandler);
@@ -1109,6 +1160,8 @@ const PartyPage = (() => {
     document.addEventListener('party:userPromoted', updateHandler);
     document.addEventListener('party:userRemovedSelf', userRemovedSelfHandler);
     document.addEventListener('party:bucketAddError', bucketAddErrorHandler);
+    document.addEventListener('party:joinRequest:new', joinRequestNewHandler);
+    document.addEventListener('party:joinRequest:list', joinRequestListHandler);
 
     listeners.bucketAdd = { event: 'party:bucketAdd', handler: updateHandler };
     listeners.bucketRemove = { event: 'party:bucketRemove', handler: updateHandler };
@@ -1122,6 +1175,8 @@ const PartyPage = (() => {
     listeners.userRemoved = { event: 'party:userRemoved', handler: updateHandler };
     listeners.userRemovedSelf = { event: 'party:userRemovedSelf', handler: userRemovedSelfHandler };
     listeners.bucketAddError = { event: 'party:bucketAddError', handler: bucketAddErrorHandler };
+    listeners.joinRequestNew = { event: 'party:joinRequest:new', handler: joinRequestNewHandler };
+    listeners.joinRequestList = { event: 'party:joinRequest:list', handler: joinRequestListHandler };
   }
 
   async function _performSearchMobile(container, query, isDJ) {
