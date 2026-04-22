@@ -372,6 +372,13 @@ const PartyRoom = (() => {
       if (data.currentSong) {
         PartyState.bucket = PartyState.bucket.filter(b => b.songId !== data.currentSong.id);
       }
+      
+      // Handle auto-play when bucket is empty
+      if (data.bucketEmpty && !data.currentSong && typeof API !== 'undefined') {
+        console.log('[PartyRoom] Bucket is empty, triggering auto-play...');
+        _triggerAutoPlay();
+      }
+      
       document.dispatchEvent(new CustomEvent('party:next', { detail: data }));
     });
 
@@ -442,6 +449,74 @@ const PartyRoom = (() => {
       console.error('[PartyRoom] Error loading session:', err);
       localStorage.removeItem('party_session');
       return null;
+    }
+  }
+
+  // ── Auto-Play Function ───────────────────────────────────────────
+
+  async function _triggerAutoPlay() {
+    if (!PartyState.roomId || typeof API === 'undefined') {
+      console.warn('[PartyRoom] Cannot auto-play: missing roomId or API');
+      return;
+    }
+
+    // Only DJs can trigger auto-play
+    const isDJ = PartyState.djs && PartyState.djs.some(dj => dj.userId === PartyState.userId);
+    if (!isDJ) {
+      console.log('[PartyRoom] Not a DJ, skipping auto-play');
+      return;
+    }
+
+    try {
+      console.log('[PartyRoom] Fetching random song for auto-play...');
+      
+      // Try trending songs first, then fall back to genre
+      let randomSong = null;
+      
+      try {
+        const trendingSongs = await API.trending(5);
+        if (trendingSongs && trendingSongs.length > 0) {
+          randomSong = trendingSongs[Math.floor(Math.random() * trendingSongs.length)];
+          console.log('[PartyRoom] Selected trending song:', randomSong.title);
+        }
+      } catch (err) {
+        console.warn('[PartyRoom] Trending API failed, trying genre search:', err);
+        
+        // Fall back to genre search
+        const genres = ['bollywood', 'punjabi', 'pop', 'hiphop', 'lofi'];
+        const randomGenre = genres[Math.floor(Math.random() * genres.length)];
+        const genreSongs = await API.byGenre(randomGenre, 5);
+        if (genreSongs && genreSongs.length > 0) {
+          randomSong = genreSongs[Math.floor(Math.random() * genreSongs.length)];
+          console.log('[PartyRoom] Selected song from genre', randomGenre, ':', randomSong.title);
+        }
+      }
+
+      if (!randomSong) {
+        console.warn('[PartyRoom] Could not find random song for auto-play');
+        return;
+      }
+
+      // Emit playback:play event with the random song (DJ only)
+      if (socket && isConnected && isDJ) {
+        socket.emit('playback:play', {
+          roomId: PartyState.roomId,
+          currentSong: {
+            id: randomSong.id,
+            title: randomSong.title,
+            artist: randomSong.artist,
+            image: randomSong.image,
+            audio: randomSong.audio,
+            duration: randomSong.duration,
+            source: randomSong.source,
+            genre: randomSong.genre,
+          },
+          currentTime: 0,
+        });
+        console.log('[PartyRoom] ✓ Auto-play song emitted to server:', randomSong.title);
+      }
+    } catch (err) {
+      console.error('[PartyRoom] Error in auto-play:', err);
     }
   }
 

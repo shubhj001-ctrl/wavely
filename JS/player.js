@@ -34,13 +34,15 @@ const Player = (() => {
   audio.addEventListener('timeupdate', () => {
     if (!audio.duration || _useYT) return;
     const pct = (audio.currentTime / audio.duration) * 100;
+    State.currentTime = audio.currentTime;
     _setProgress(pct);
     document.getElementById('time-cur').textContent   = Components.fmt(Math.floor(audio.currentTime));
     document.getElementById('time-total').textContent = Components.fmt(Math.floor(audio.duration));
+    document.dispatchEvent(new CustomEvent('player:timeupdate', { detail: { currentTime: audio.currentTime, duration: audio.duration } }));
   });
 
-  audio.addEventListener('play',  () => { if (!_useYT) { State.playing = true;  _updatePlayIcon(true); } });
-  audio.addEventListener('pause', () => { if (!_useYT) { State.playing = false; _updatePlayIcon(false); } });
+  audio.addEventListener('play',  () => { if (!_useYT) { State.playing = true;  _updatePlayIcon(true); document.dispatchEvent(new CustomEvent('player:play')); } });
+  audio.addEventListener('pause', () => { if (!_useYT) { State.playing = false; _updatePlayIcon(false); document.dispatchEvent(new CustomEvent('player:pause')); } });
 
   audio.addEventListener('ended', () => {
     if (_useYT) return;
@@ -66,8 +68,8 @@ const Player = (() => {
 
   function _onYTStateChange(e) {
     if (!_useYT) return;
-    if      (e.data === YT.PlayerState.PLAYING)  { State.playing = true;  _updatePlayIcon(true);  _startYTTimer(); }
-    else if (e.data === YT.PlayerState.PAUSED)   { State.playing = false; _updatePlayIcon(false); clearInterval(progressTimer); }
+    if      (e.data === YT.PlayerState.PLAYING)  { State.playing = true;  _updatePlayIcon(true);  _startYTTimer(); document.dispatchEvent(new CustomEvent('player:play')); }
+    else if (e.data === YT.PlayerState.PAUSED)   { State.playing = false; _updatePlayIcon(false); clearInterval(progressTimer); document.dispatchEvent(new CustomEvent('player:pause')); }
     else if (e.data === YT.PlayerState.BUFFERING){ _updatePlayIcon(true); }
     else if (e.data === YT.PlayerState.ENDED) {
       clearInterval(progressTimer);
@@ -157,9 +159,11 @@ const Player = (() => {
       if (!ytPlayer?.getDuration) return;
       const dur=ytPlayer.getDuration()||0, cur=ytPlayer.getCurrentTime()||0;
       if (dur>0) {
+        State.currentTime = cur;
         _setProgress((cur/dur)*100);
         document.getElementById('time-cur').textContent   = Components.fmt(Math.floor(cur));
         document.getElementById('time-total').textContent = Components.fmt(Math.floor(dur));
+        document.dispatchEvent(new CustomEvent('player:timeupdate', { detail: { currentTime: cur, duration: dur } }));
       }
     }, 500);
   }
@@ -214,13 +218,14 @@ const Player = (() => {
       document.getElementById('time-cur').textContent   = '0:00';
       document.getElementById('time-total').textContent = Components.fmt(track.duration||0);
       Queue.prewarm(track);
+      State.currentTime = 0;
 
       if (track.source==='jiosaavn' && track.audio) {
         _useYT=false;
         if (ytPlayer?.pauseVideo) ytPlayer.pauseVideo();
         clearInterval(progressTimer);
         audio.src=track.audio; audio.volume=State.volume; audio.currentTime=0;
-        try { await audio.play(); console.log('[MU LABZ] ▶ JioSaavn:',track.title,'|',track.genre||'unknown'); }
+        try { await audio.play(); console.log('[MU LABZ] ▶ JioSaavn:',track.title,'|',track.genre||'unknown'); document.dispatchEvent(new CustomEvent('player:trackchange')); }
         catch(e) { console.warn('[MU LABZ] Autoplay blocked:', e); showToast('Tap play to start'); }
       } else {
         audio.pause();

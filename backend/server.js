@@ -476,7 +476,16 @@ io.on('connection', (socket) => {
   socket.on('playback:play', (data) => {
     const { roomId, currentSong, currentTime } = data;
     const room = getRoom(roomId);
-    if (!room) return;
+    const user = socketToUser.get(socket.id);
+    
+    if (!room || !user) return;
+
+    // Check if user is DJ
+    const isDJ = room.djs.find(dj => dj.userId === user.userId);
+    if (!isDJ) {
+      socket.emit('error', { type: 'NOT_AUTHORIZED', message: 'Only DJ can control playback' });
+      return;
+    }
 
     // Record server timestamp for sync
     const playStartTime = Date.now();
@@ -541,7 +550,16 @@ io.on('connection', (socket) => {
   socket.on('playback:next', (data) => {
     const { roomId } = data;
     const room = getRoom(roomId);
-    if (!room) return;
+    const user = socketToUser.get(socket.id);
+    
+    if (!room || !user) return;
+
+    // Check if user is DJ
+    const isDJ = room.djs.find(dj => dj.userId === user.userId);
+    if (!isDJ) {
+      socket.emit('error', { type: 'NOT_AUTHORIZED', message: 'Only DJ can skip tracks' });
+      return;
+    }
 
     // Get next from bucket
     if (room.bucket.length > 0) {
@@ -551,19 +569,26 @@ io.on('connection', (socket) => {
         title: nextItem.title,
         artist: nextItem.artist,
         image: nextItem.image,
+        audio: nextItem.audio,
+        duration: nextItem.duration,
+        source: nextItem.source,
+        genre: nextItem.genre,
       };
+      room.isPlaying = true;
     } else {
+      // Bucket is empty - trigger auto-play on clients
       room.currentSong = null;
+      room.isPlaying = false;
     }
 
     room.currentTime = 0;
-    room.isPlaying = room.currentSong ? true : false;
 
     io.to(roomId).emit('playback:next', {
       currentSong: room.currentSong,
+      bucketEmpty: room.bucket.length === 0,
     });
 
-    console.log(`[Playback] Skipped to next in ${roomId}`);
+    console.log(`[Playback] Skipped to next in ${roomId}. Bucket empty: ${room.bucket.length === 0}`);
   });
 
   // Sync playback time
