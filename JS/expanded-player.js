@@ -93,6 +93,7 @@ const ExpandedPlayer = (() => {
       if (el.playBtn?.querySelector('svg')) {
         el.playBtn.querySelector('svg').innerHTML = '<path d="M8 5v14l11-7z"/>';
       }
+      if (el.likeBtn) el.likeBtn.classList.remove('liked');
       return;
     }
 
@@ -144,7 +145,7 @@ const ExpandedPlayer = (() => {
       if (el.likeBtn) el.likeBtn.classList.remove('liked');
       return;
     }
-    const isLiked = isLikedById(track.id);
+    const isLiked = typeof isLikedById === 'function' ? isLikedById(track.id) : State.liked.has(track.id);
     el.likeBtn.classList.toggle('liked', isLiked);
   }
 

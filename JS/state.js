@@ -48,6 +48,11 @@ function toggleLikeById(id) {
   }
 }
 
+/** Returns whether a track ID is liked. */
+function isLikedById(id) {
+  return State.liked.has(id);
+}
+
 /** Add a track to history (deduped, max 50 entries) AND persist to localStorage */
 function addToHistory(track) {
   if (!track || !track.id) return;

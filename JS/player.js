@@ -13,6 +13,8 @@ function currentTrack() {
 const Player = (() => {
   const audio = new Audio();
   audio.preload = 'metadata';
+  audio.muted = false;
+  audio.volume = State.volume;
 
   let ytPlayer = null, ytReady = false, ytPendingId = null;
   let _useYT = false, progressTimer = null;
@@ -44,6 +46,29 @@ const Player = (() => {
     document.getElementById('time-cur').textContent   = Components.fmt(Math.floor(audio.currentTime));
     document.getElementById('time-total').textContent = Components.fmt(Math.floor(audio.duration));
     document.dispatchEvent(new CustomEvent('player:timeupdate', { detail: { currentTime: audio.currentTime, duration: audio.duration } }));
+  });
+
+  audio.addEventListener('loadedmetadata', () => {
+    audio.muted = false;
+    audio.volume = State.volume;
+    console.log('[Player] Loaded audio metadata:', audio.src, 'duration', audio.duration);
+  });
+
+  audio.addEventListener('canplay', () => {
+    console.log('[Player] Audio can play:', audio.src);
+  });
+
+  audio.addEventListener('error', () => {
+    if (_useYT) return;
+    const err = audio.error;
+    console.warn('[MU LABZ] Audio error event:', err, 'src=', audio.src);
+    if (err && (err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED || err.code === MediaError.MEDIA_ERR_NETWORK)) {
+      console.warn('[MU LABZ] Audio src/network error, trying YouTube fallback. Code:', err.code);
+      _playViaYouTube(currentTrack());
+    } else {
+      console.warn('[MU LABZ] Audio decode/unknown error, skipping to next. Code:', err?.code);
+      setTimeout(() => Player.next(), 1000);
+    }
   });
 
   audio.addEventListener('play',  () => {
@@ -102,6 +127,7 @@ const Player = (() => {
       }
 
       if (!audioSource) {
+        audio.crossOrigin = 'anonymous';
         audioSource = audioContext.createMediaElementSource(audio);
       }
 
@@ -316,9 +342,18 @@ const Player = (() => {
         _useYT=false;
         if (ytPlayer?.pauseVideo) ytPlayer.pauseVideo();
         clearInterval(progressTimer);
-        audio.src=track.audio; audio.volume=State.volume; audio.currentTime=0;
-        try { await audio.play(); console.log('[MU LABZ] ▶ JioSaavn:',track.title,'|',track.genre||'unknown'); document.dispatchEvent(new CustomEvent('player:trackchange')); }
-        catch(e) { console.warn('[MU LABZ] Autoplay blocked:', e); showToast('Tap play to start'); }
+        audio.src = track.audio;
+        audio.muted = false;
+        audio.volume = State.volume;
+        audio.currentTime = 0;
+        try {
+          await audio.play();
+          console.log('[MU LABZ] ▶ JioSaavn:', track.title, '|', track.genre||'unknown', 'volume', audio.volume);
+          document.dispatchEvent(new CustomEvent('player:trackchange'));
+        } catch(e) {
+          console.warn('[MU LABZ] Autoplay blocked or audio failed:', e);
+          showToast('Tap play to start');
+        }
       } else {
         audio.pause();
         await _playViaYouTube(track);
