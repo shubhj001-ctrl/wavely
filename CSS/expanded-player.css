@@ -34,7 +34,7 @@
   flex-direction: column;
 
   /* Matches Wavely warm bg */
-  background: var(--bg);
+  background: radial-gradient(circle at top, rgba(15, 23, 50, 0.96), rgba(6, 9, 19, 0.99)), var(--bg);
 
   transform: translateY(100%);
   transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1);
@@ -62,14 +62,20 @@
   filter: blur(80px) saturate(0.4);
   opacity: 0.18;
   transform: scale(1.1);
-  transition: background-image 0.6s ease;
+  transition: background-image 0.6s ease, transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease;
+  animation: ambientDrift 18s ease-in-out infinite;
+}
+
+@keyframes ambientDrift {
+  0%, 100% { transform: scale(1.1) rotate(0deg); }
+  50% { transform: scale(1.14) rotate(2deg); }
 }
 
 /* Warm overlay so text stays readable */
 .ep-ambient-overlay {
   position: absolute;
   inset: 0;
-  background: var(--bg);
+  background: radial-gradient(circle at 50% 40%, rgba(10, 12, 24, 0.40), rgba(5, 8, 16, 0.88));
 }
 
 /* ── Content sits above ambient ── */

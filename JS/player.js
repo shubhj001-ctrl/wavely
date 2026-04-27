@@ -17,6 +17,11 @@ const Player = (() => {
   let ytPlayer = null, ytReady = false, ytPendingId = null;
   let _useYT = false, progressTimer = null;
   let _candidates = [], _candidateIdx = 0;
+  let audioContext = null;
+  let audioSource = null;
+  let analyser = null;
+  let dataArray = null;
+  let analyzerFrameId = null;
 
   const tag = document.createElement('script');
   tag.src = 'https://www.youtube.com/iframe_api';
@@ -41,12 +46,28 @@ const Player = (() => {
     document.dispatchEvent(new CustomEvent('player:timeupdate', { detail: { currentTime: audio.currentTime, duration: audio.duration } }));
   });
 
-  audio.addEventListener('play',  () => { if (!_useYT) { State.playing = true;  _updatePlayIcon(true); document.dispatchEvent(new CustomEvent('player:play')); } });
-  audio.addEventListener('pause', () => { if (!_useYT) { State.playing = false; _updatePlayIcon(false); document.dispatchEvent(new CustomEvent('player:pause')); } });
+  audio.addEventListener('play',  () => {
+    if (!_useYT) {
+      State.playing = true;
+      _updatePlayIcon(true);
+      document.dispatchEvent(new CustomEvent('player:play'));
+      _startBeatLoop();
+    }
+  });
+
+  audio.addEventListener('pause', () => {
+    if (!_useYT) {
+      State.playing = false;
+      _updatePlayIcon(false);
+      document.dispatchEvent(new CustomEvent('player:pause'));
+      _stopBeatLoop();
+    }
+  });
 
   audio.addEventListener('ended', () => {
     if (_useYT) return;
     clearInterval(progressTimer);
+    _stopBeatLoop();
     if (State.repeat) { audio.currentTime = 0; audio.play(); return; }
     Player.next();
   });
@@ -64,15 +85,86 @@ const Player = (() => {
     }
   });
 
+  function _ensureAudioAnalyzer() {
+    if (_useYT) return false;
+    if (analyser) return true;
+
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return false;
+
+      if (!audioContext) {
+        audioContext = new AudioCtx();
+      }
+
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+
+      if (!audioSource) {
+        audioSource = audioContext.createMediaElementSource(audio);
+      }
+
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.75;
+      audioSource.connect(analyser);
+      analyser.connect(audioContext.destination);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      return true;
+    } catch (error) {
+      console.warn('[Player] Audio analyzer unavailable:', error);
+      analyser = null;
+      dataArray = null;
+      return false;
+    }
+  }
+
+  function _dispatchBeat(intensity) {
+    document.dispatchEvent(new CustomEvent('player:beat', { detail: { intensity: Math.max(0, Math.min(1, intensity)) } }));
+  }
+
+  function _beatLoop() {
+    if (!State.playing) {
+      analyzerFrameId = null;
+      return;
+    }
+
+    if (!_useYT && analyser && dataArray) {
+      analyser.getByteFrequencyData(dataArray);
+      const avg = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+      _dispatchBeat(avg / 255);
+    } else {
+      const pulse = 0.18 + Math.abs(Math.sin(Date.now() / 240)) * 0.38;
+      _dispatchBeat(pulse);
+    }
+
+    analyzerFrameId = requestAnimationFrame(_beatLoop);
+  }
+
+  function _startBeatLoop() {
+    if (analyzerFrameId) cancelAnimationFrame(analyzerFrameId);
+    if (!_useYT) {
+      _ensureAudioAnalyzer();
+    }
+    analyzerFrameId = requestAnimationFrame(_beatLoop);
+  }
+
+  function _stopBeatLoop() {
+    if (analyzerFrameId) cancelAnimationFrame(analyzerFrameId);
+    analyzerFrameId = null;
+  }
+
   function _onYTReady() { if (ytPendingId) { ytPlayer.loadVideoById(ytPendingId); ytPendingId = null; } }
 
   function _onYTStateChange(e) {
     if (!_useYT) return;
-    if      (e.data === YT.PlayerState.PLAYING)  { State.playing = true;  _updatePlayIcon(true);  _startYTTimer(); document.dispatchEvent(new CustomEvent('player:play')); }
-    else if (e.data === YT.PlayerState.PAUSED)   { State.playing = false; _updatePlayIcon(false); clearInterval(progressTimer); document.dispatchEvent(new CustomEvent('player:pause')); }
+    if      (e.data === YT.PlayerState.PLAYING)  { State.playing = true;  _updatePlayIcon(true);  _startYTTimer(); _startBeatLoop(); document.dispatchEvent(new CustomEvent('player:play')); }
+    else if (e.data === YT.PlayerState.PAUSED)   { State.playing = false; _updatePlayIcon(false); clearInterval(progressTimer); _stopBeatLoop(); document.dispatchEvent(new CustomEvent('player:pause')); }
     else if (e.data === YT.PlayerState.BUFFERING){ _updatePlayIcon(true); }
     else if (e.data === YT.PlayerState.ENDED) {
       clearInterval(progressTimer);
+      _stopBeatLoop();
       if (State.repeat) { ytPlayer.seekTo(0); ytPlayer.playVideo(); return; }
       Player.next();
     }

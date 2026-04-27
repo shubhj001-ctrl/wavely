@@ -33,6 +33,21 @@ const ExpandedPlayer = (() => {
     };
   }
 
+  function _applyBeatVibe(event) {
+    const el = getElements();
+    if (!el.expandedPlayer || !el.ambientImg) return;
+
+    const intensity = Math.max(0, Math.min(1, event?.detail?.intensity ?? 0));
+    const hue = 220 + intensity * 38;
+    const glow = 0.18 + intensity * 0.27;
+    const brightness = 1 + intensity * 0.18;
+
+    el.ambientImg.style.filter = `blur(80px) saturate(0.72) contrast(1.1) brightness(${brightness})`;
+    el.ambientImg.style.transform = `scale(${1.08 + intensity * 0.08}) rotate(${intensity * 2}deg)`;
+    el.ambientImg.style.opacity = `${glow}`;
+    el.expandedPlayer.style.background = `radial-gradient(circle at 50% 10%, hsla(${hue}, 98%, 60%, ${0.18 + intensity * 0.08}), transparent 40%), var(--bg)`;
+  }
+
   // ── Open/Close Handler ──────────────────────────────────────
 
   function open() {
@@ -178,6 +193,20 @@ const ExpandedPlayer = (() => {
           open();
         }
       });
+
+      let touchStartY = null;
+      el.playerBar.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        touchStartY = e.touches[0].clientY;
+      });
+      el.playerBar.addEventListener('touchend', (e) => {
+        if (touchStartY === null) return;
+        const deltaY = e.changedTouches[0].clientY - touchStartY;
+        touchStartY = null;
+        if (deltaY < -70 && !isOpen) {
+          open();
+        }
+      });
     }
 
     // Close button
@@ -189,6 +218,20 @@ const ExpandedPlayer = (() => {
     if (el.expandedPlayer) {
       el.expandedPlayer.addEventListener('click', (e) => {
         if (e.target === el.expandedPlayer) {
+          close();
+        }
+      });
+
+      let swipeStartY = null;
+      el.expandedPlayer.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        swipeStartY = e.touches[0].clientY;
+      });
+      el.expandedPlayer.addEventListener('touchend', (e) => {
+        if (swipeStartY === null) return;
+        const deltaY = e.changedTouches[0].clientY - swipeStartY;
+        swipeStartY = null;
+        if (deltaY > 80 && isOpen) {
           close();
         }
       });
@@ -237,6 +280,8 @@ const ExpandedPlayer = (() => {
     document.addEventListener('player:trackchange', refresh);
     document.addEventListener('player:shuffle', updateControlStates);
     document.addEventListener('player:repeat', updateControlStates);
+    document.addEventListener('player:beat', _applyBeatVibe);
+    document.addEventListener('player:play', _applyBeatVibe);
 
     console.log('[ExpandedPlayer] Event listeners attached');
   }

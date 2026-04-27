@@ -562,7 +562,7 @@ const PartyPage = (() => {
               🔗
             </button>
             <button class="header-user-count ${isDJ ? 'clickable' : ''}" data-toggle="users-modal">
-              👥 ${totalUsers}
+              👥 ${totalUsers}${state.pendingJoins?.length ? ' · ' + state.pendingJoins.length + ' waiting' : ''}
             </button>
             <button class="header-leave-btn">Leave</button>
           </div>
@@ -698,6 +698,7 @@ const PartyPage = (() => {
 
     _attachPartyEventListeners(container, roomId);
     _updateUIState(container);
+    _refreshWaitingStatus(container);
   }
 
   function _generateModalUsersList(state, isDJ) {
@@ -772,6 +773,23 @@ const PartyPage = (() => {
         ` : ''}
       </div>
     `).join('');
+  }
+
+  function _refreshWaitingStatus(container) {
+    const state = PartyRoom.getState();
+    const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
+    if (!userCountBtn) return;
+
+    const totalUsers = (state.users?.length || 0) + (state.djs?.length || 0);
+    const pendingCount = state.pendingJoins?.length || 0;
+
+    userCountBtn.textContent = `👥 ${totalUsers}${pendingCount > 0 ? ' · ' + pendingCount + ' waiting' : ''}`;
+    userCountBtn.classList.toggle('has-pending-requests', pendingCount > 0);
+
+    const waitingTabBtn = container.querySelector('.modal-tab[data-tab="waiting"]');
+    if (waitingTabBtn) {
+      waitingTabBtn.textContent = `Waiting (${pendingCount})`;
+    }
   }
 
   // ─── FIX: Dedicated helper to attach listeners to waiting tab after any re-render ───
@@ -1142,10 +1160,7 @@ const PartyPage = (() => {
     // Handle new join requests (DJ notifications)
     const joinRequestNewHandler = (event) => {
       if (!isDJ) return;
-      const userCountBtn = container.querySelector('[data-toggle="users-modal"]');
-      if (userCountBtn && PartyRoom.getState().pendingJoins.length > 0) {
-        userCountBtn.classList.add('has-pending-requests');
-      }
+      _refreshWaitingStatus(container);
     };
 
     // Handle join request list updates
@@ -1165,9 +1180,7 @@ const PartyPage = (() => {
         }
       }
       
-      if (state.pendingJoins.length > 0) {
-        userCountBtn?.classList.add('has-pending-requests');
-      }
+      _refreshWaitingStatus(container);
     };
 
     document.addEventListener('party:bucketAdd', updateHandler);

@@ -651,3 +651,61 @@
     font-size: 1.2rem;
   }
 }
+
+/* ── Futuristic antigravity glow ───────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(80, 165, 255, 0.18), transparent 18%),
+    radial-gradient(circle at 82% 22%, rgba(101, 255, 211, 0.13), transparent 16%),
+    radial-gradient(circle at 46% 80%, rgba(255, 120, 255, 0.08), transparent 20%);
+  background-size: 180% 180%, 160% 160%, 220% 220%;
+  animation: ambientFlow 24s ease-in-out infinite;
+}
+
+@keyframes ambientFlow {
+  0% {
+    background-position: 0% 0%, 100% 100%, 50% 50%;
+  }
+  50% {
+    background-position: 15% 10%, 80% 90%, 40% 60%;
+  }
+  100% {
+    background-position: 0% 0%, 100% 100%, 50% 50%;
+  }
+}
+
+@keyframes float-lift {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.card,
+.track-row,
+.party-modal-content,
+.ep-art,
+.hero,
+.search-result-item-mobile {
+  animation: float-lift 24s ease-in-out infinite;
+  will-change: transform, box-shadow;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  .card,
+  .track-row,
+  .party-modal-content,
+  .ep-art,
+  .hero,
+  .search-result-item-mobile {
+    animation: none !important;
+  }
+}
