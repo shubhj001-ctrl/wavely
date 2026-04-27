@@ -126,7 +126,11 @@ const ExpandedPlayer = (() => {
     updateControlStates();
 
     // Update like button
-    updateLikeBtn();
+    try {
+      updateLikeBtn();
+    } catch (e) {
+      console.warn('[ExpandedPlayer] updateLikeBtn failed:', e);
+    }
 
     // Update progress
     updateProgress();

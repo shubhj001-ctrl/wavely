@@ -111,43 +111,50 @@ const Player = (() => {
   });
 
   function _ensureAudioAnalyzer() {
+    // Analyzer is optional and should never block playback
     if (_useYT) return false;
     if (analyser) return true;
 
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return false;
+      if (!AudioCtx) {
+        console.log('[Player] AudioContext not available');
+        return false;
+      }
 
       if (!audioContext) {
         audioContext = new AudioCtx();
+        console.log('[Player] AudioContext created');
       }
 
       if (audioContext.state === 'suspended') {
-        audioContext.resume().catch(() => {});
+        audioContext.resume().catch(e => console.warn('[Player] Resume context failed:', e));
       }
 
+      // Try to create source only if not already created
       if (!audioSource) {
-        audio.crossOrigin = 'anonymous';
-        audioSource = audioContext.createMediaElementSource(audio);
+        try {
+          audioSource = audioContext.createMediaElementSource(audio);
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 64;
+          analyser.smoothingTimeConstant = 0.75;
+          audioSource.connect(analyser);
+          analyser.connect(audioContext.destination);
+          dataArray = new Uint8Array(analyser.frequencyBinCount);
+          console.log('[Player] Audio analyzer connected');
+          return true;
+        } catch (err) {
+          console.warn('[Player] Failed to connect analyzer:', err);
+          analyser = null;
+          return false;
+        }
       }
-
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 64;
-      analyser.smoothingTimeConstant = 0.75;
-      audioSource.connect(analyser);
-      analyser.connect(audioContext.destination);
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
       return true;
     } catch (error) {
       console.warn('[Player] Audio analyzer unavailable:', error);
       analyser = null;
-      dataArray = null;
       return false;
     }
-  }
-
-  function _dispatchBeat(intensity) {
-    document.dispatchEvent(new CustomEvent('player:beat', { detail: { intensity: Math.max(0, Math.min(1, intensity)) } }));
   }
 
   function _beatLoop() {
@@ -156,23 +163,30 @@ const Player = (() => {
       return;
     }
 
+    let intensity = 0.18;
+
+    // Try to get real beat data if analyzer is available
     if (!_useYT && analyser && dataArray) {
-      analyser.getByteFrequencyData(dataArray);
-      const avg = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-      _dispatchBeat(avg / 255);
+      try {
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+        intensity = avg / 255;
+      } catch (e) {
+        // If analyzer fails, just use pulse
+        intensity = 0.18 + Math.abs(Math.sin(Date.now() / 240)) * 0.38;
+      }
     } else {
-      const pulse = 0.18 + Math.abs(Math.sin(Date.now() / 240)) * 0.38;
-      _dispatchBeat(pulse);
+      // Fallback: simple pulse
+      intensity = 0.18 + Math.abs(Math.sin(Date.now() / 240)) * 0.38;
     }
 
+    document.dispatchEvent(new CustomEvent('player:beat', { detail: { intensity: Math.max(0, Math.min(1, intensity)) } }));
     analyzerFrameId = requestAnimationFrame(_beatLoop);
   }
 
   function _startBeatLoop() {
     if (analyzerFrameId) cancelAnimationFrame(analyzerFrameId);
-    if (!_useYT) {
-      _ensureAudioAnalyzer();
-    }
+    // Don't wait for analyzer - start beat loop immediately
     analyzerFrameId = requestAnimationFrame(_beatLoop);
   }
 
@@ -342,16 +356,33 @@ const Player = (() => {
         _useYT=false;
         if (ytPlayer?.pauseVideo) ytPlayer.pauseVideo();
         clearInterval(progressTimer);
+        
+        // Set up audio element
         audio.src = track.audio;
         audio.muted = false;
         audio.volume = State.volume;
         audio.currentTime = 0;
+        
+        console.log('[Player] Setting audio src:', track.audio);
+        console.log('[Player] Audio volume:', audio.volume, 'muted:', audio.muted);
+        
         try {
-          await audio.play();
-          console.log('[MU LABZ] ▶ JioSaavn:', track.title, '|', track.genre||'unknown', 'volume', audio.volume);
-          document.dispatchEvent(new CustomEvent('player:trackchange'));
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log('[MU LABZ] ▶ JioSaavn:', track.title, '| volume:', audio.volume);
+                document.dispatchEvent(new CustomEvent('player:trackchange'));
+                // Try analyzer after play starts
+                setTimeout(() => _ensureAudioAnalyzer(), 100);
+              })
+              .catch(err => {
+                console.error('[MU LABZ] Play promise rejected:', err);
+                showToast('Playback failed - ' + err.message);
+              });
+          }
         } catch(e) {
-          console.warn('[MU LABZ] Autoplay blocked or audio failed:', e);
+          console.error('[MU LABZ] Audio play() threw error:', e);
           showToast('Tap play to start');
         }
       } else {
